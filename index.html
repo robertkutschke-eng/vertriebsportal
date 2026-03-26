@@ -987,122 +987,102 @@ async function karteSuche() {
   if (!_suchePos) { karteOrtDialog(); return; }
   const {lat, lng} = _suchePos;
   const km = Number(document.getElementById('map-radius')?.value || 10);
+  const r = km * 1000;
   const res = document.getElementById('karte-results');
   const aktiv = KARTE_KATS.filter(k=>_aktiveKat.has(k.id));
   if (!aktiv.length) { res.innerHTML=`<div style="padding:20px;text-align:center;color:var(--text3)">Bitte Kategorie wählen</div>`; return; }
 
-  if (!_map) { karteInitMap(); await new Promise(r=>setTimeout(r,500)); }
-  if (_map) { _map.setView([lat,lng], km<=5?13:km<=10?12:km<=25?11:10); setTimeout(()=>_map.invalidateSize(),200); }
+  if (!_map) { karteInitMap(); await new Promise(x=>setTimeout(x,500)); }
+  if (_map) { _map.setView([lat,lng], km<=5?13:km<=10?12:11); setTimeout(()=>_map.invalidateSize(),300); }
 
-  // Remove old search markers
   _markers.forEach(m=>{if(m._ks&&_map)_map.removeLayer(m);});
   _markers = _markers.filter(m=>!m._ks);
+  if (_map) L.circleMarker([lat,lng],{radius:9,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:1,weight:3}).addTo(_map).bindPopup('📍 Standort').openPopup();
 
-  // My position marker
-  if (_map) L.circleMarker([lat,lng],{radius:9,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:1,weight:3}).addTo(_map).bindPopup('📍 Mein Standort').openPopup();
+  res.innerHTML = `<div style="text-align:center;padding:24px"><div class="spinner" style="margin:0 auto 12px"></div><b style="color:var(--blue)">Suche ${km} km Umkreis…</b><br><span style="font-size:12px;color:var(--text3)">${aktiv.map(k=>k.ico).join(' ')}</span></div>`;
 
-  const allResults = [];
-  const seen = new Set();
-  let suchBegriffe = [];
-
-  // Build search terms per active category
-  const KAT_SUCHE = {
-    metzgerei:   ['Metzgerei','Fleischerei','Schlachterei'],
-    baeckerei:   ['Bäckerei','Konditorei'],
-    fisch:       ['Fischerei','Fischhandel','Fischladen'],
-    gastro:      ['Restaurant','Gaststätte','Gasthof'],
-    hotel:       ['Hotel','Catering'],
-    krankenhaus: ['Krankenhaus','Klinikum','Klinik'],
-    pflege:      ['Pflegeheim','Seniorenheim','Altenheim','AWO','Caritas Pflege','Diakonie Pflege','Vitanas','Korian'],
-    reha:        ['Rehaklinik','Rehabilitation'],
-  };
-
+  // Simple proven Overpass query
+  const parts = [];
   aktiv.forEach(k => {
-    (KAT_SUCHE[k.id]||[]).forEach(term => suchBegriffe.push({term, kat:k}));
+    if(k.id==='metzgerei'){parts.push(`node["shop"="butcher"](around:${r},${lat},${lng});way["shop"="butcher"](around:${r},${lat},${lng});`);}
+    if(k.id==='baeckerei'){parts.push(`node["shop"="bakery"](around:${r},${lat},${lng});way["shop"="bakery"](around:${r},${lat},${lng});`);}
+    if(k.id==='fisch'){parts.push(`node["shop"="seafood"](around:${r},${lat},${lng});node["shop"="fishmonger"](around:${r},${lat},${lng});`);}
+    if(k.id==='gastro'){parts.push(`node["amenity"="restaurant"](around:${r},${lat},${lng});way["amenity"="restaurant"](around:${r},${lat},${lng});`);}
+    if(k.id==='hotel'){parts.push(`node["tourism"="hotel"](around:${r},${lat},${lng});way["tourism"="hotel"](around:${r},${lat},${lng});node["amenity"="canteen"](around:${r},${lat},${lng});`);}
+    if(k.id==='krankenhaus'){parts.push(`node["amenity"="hospital"](around:${r},${lat},${lng});way["amenity"="hospital"](around:${r},${lat},${lng});node["amenity"="clinic"](around:${r},${lat},${lng});way["amenity"="clinic"](around:${r},${lat},${lng});`);}
+    if(k.id==='pflege'){parts.push(`node["amenity"="nursing_home"](around:${r},${lat},${lng});way["amenity"="nursing_home"](around:${r},${lat},${lng});node["amenity"="social_facility"]["social_facility"="nursing_home"](around:${r},${lat},${lng});way["amenity"="social_facility"]["social_facility"="nursing_home"](around:${r},${lat},${lng});`);}
+    if(k.id==='reha'){parts.push(`node["amenity"="rehabilitation"](around:${r},${lat},${lng});way["healthcare"="rehabilitation"](around:${r},${lat},${lng});`);}
+    // Name keyword search
+    const namen = {
+      metzgerei:'Metzgerei|Fleischerei|Schlachterei',
+      baeckerei:'Bäckerei|Konditorei|Backstube',
+      fisch:'Fischerei|Fischhandel|Fischladen',
+      gastro:'Gaststätte|Gasthof|Wirtshaus',
+      hotel:'Catering|Partyservice',
+      krankenhaus:'Krankenhaus|Klinikum',
+      pflege:'Pflegeheim|Seniorenheim|Altenheim|AWO|Caritas|Diakonie|Vitanas|Korian|Azurit|Johanniter',
+      reha:'Reha|Rehabilitation|Sanatorium',
+    };
+    if(namen[k.id]){
+      parts.push(`node["name"~"${namen[k.id]}",i](around:${r},${lat},${lng});`);
+      parts.push(`way["name"~"${namen[k.id]}",i](around:${r},${lat},${lng});`);
+    }
   });
 
-  // Calculate bounding box for search
-  const delta = km / 111;
-  const bbox = `${lat-delta},${lng-delta},${lat+delta},${lng+delta}`;
+  const query = `[out:json][timeout:40];(${parts.join('')});out center tags;`;
 
-  res.innerHTML = `<div style="text-align:center;padding:24px"><div class="spinner" style="margin:0 auto 12px"></div>
-    <div style="color:var(--blue);font-weight:700">Suche ${suchBegriffe.length} Begriffe…</div>
-    <div style="color:var(--text3);font-size:12px;margin-top:4px">${km} km · ${aktiv.map(k=>k.ico).join(' ')}</div></div>`;
+  try {
+    const resp = await fetch('https://overpass-api.de/api/interpreter', {
+      method:'POST', body:'data='+encodeURIComponent(query)
+    });
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    const data = await resp.json();
+    const seen = new Set();
+    const results = [];
 
-  // Search each term via Nominatim
-  for (let i = 0; i < suchBegriffe.length; i++) {
-    const {term, kat} = suchBegriffe[i];
-    try {
-      const url = `https://nominatim.openstreetmap.org/search` +
-        `?q=${encodeURIComponent(term)}` +
-        `&countrycodes=de` +
-        `&viewbox=${lng-delta},${lat+delta},${lng+delta},${lat-delta}` +
-        `&bounded=1` +
-        `&format=json&limit=50&addressdetails=1` +
-        `&accept-language=de`;
+    (data.elements||[]).forEach(el => {
+      const la = el.lat||el.center?.lat, lo = el.lon||el.center?.lon;
+      if(!la||!lo) return;
+      const tags = el.tags||{};
+      const name = (tags.name||'').trim();
+      if(!name||name.length<2) return;
+      const key = name.toLowerCase().replace(/\s+/g,'').slice(0,18)+Math.round(la*100);
+      if(seen.has(key)) return;
+      seen.add(key);
+      const kat = karteErkennKat(name, tags);
+      if(!kat||!_aktiveKat.has(kat.id)) return;
+      const adr = [tags['addr:street'],tags['addr:housenumber'],tags['addr:postcode'],tags['addr:city']].filter(Boolean).join(' ');
+      const tel = tags.phone||tags['contact:phone']||'';
+      const isLead = (state.leads||[]).some(l=>l.firma===name);
 
-      const r = await fetch(url, {headers:{'User-Agent':'VertriebPro/1.0','Accept-Language':'de'}});
-      const data = await r.json();
+      if(_map){
+        const icon=L.divIcon({html:`<div style="background:${isLead?'#10b981':kat.col};width:26px;height:26px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,.4)">${isLead?'✓':kat.ico}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+        const m=L.marker([la,lo],{icon}).addTo(_map);
+        m._ks=true;
+        m.bindPopup(`<div style="min-width:185px;font-family:system-ui">
+          <b style="font-size:14px">${name}</b>
+          <div style="color:${kat.col};font-size:11px;font-weight:700;margin:3px 0">${kat.ico} ${kat.name}</div>
+          ${adr?`<div style="font-size:11px;color:#555;margin-bottom:4px">📍 ${adr}</div>`:''}
+          ${tel?`<div style="font-size:11px;margin-bottom:6px">📞 <a href="tel:${tel}">${tel}</a></div>`:''}
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <a href="https://www.google.de/search?q=${encodeURIComponent(name+' '+adr)}" target="_blank" style="background:#4285f422;color:#4285f4;border-radius:5px;padding:4px 8px;font-size:11px;text-decoration:none;font-weight:700">🔍</a>
+            ${tel?`<a href="tel:${tel}" style="background:#10b98122;color:#10b981;border-radius:5px;padding:4px 8px;font-size:11px;text-decoration:none;font-weight:700">📞</a>`:''}
+            ${!isLead?`<button onclick="karteAddLead('${name.replace(/'/g,"\'")}','${kat.name}',${la},${lo},'${adr.replace(/'/g,"\'")}','${tel}')" style="background:#1d4ed8;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:700">+ Lead</button>`:'<span style="color:#10b981;font-size:11px;font-weight:700">✓ Lead</span>'}
+          </div></div>`);
+        _markers.push(m);
+      }
+      results.push({name,kat,adr,tel,la,lo,isLead});
+    });
 
-      data.forEach(el => {
-        if (!el.lat||!el.lon) return;
-        const name = (el.display_name||'').split(',')[0].trim();
-        if (!name||name.length<2) return;
-
-        // Distance check
-        const dlat = (Number(el.lat)-lat)*111;
-        const dlng = (Number(el.lon)-lng)*71;
-        const dist = Math.sqrt(dlat*dlat+dlng*dlng);
-        if (dist > km) return;
-
-        const key = name.toLowerCase().replace(/\s+/g,'').slice(0,18);
-        if (seen.has(key)) return;
-        seen.add(key);
-
-        const adr = el.address;
-        const adresse = [adr?.road, adr?.house_number, adr?.postcode, adr?.city||adr?.town||adr?.village].filter(Boolean).join(' ');
-        const isLead = (state.leads||[]).some(l=>l.firma===name);
-
-        // Map marker
-        if (_map) {
-          const icon = L.divIcon({
-            html:`<div style="background:${isLead?'#10b981':kat.col};width:26px;height:26px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,.4)">${isLead?'✓':kat.ico}</div>`,
-            iconSize:[26,26],iconAnchor:[13,13]
-          });
-          const m = L.marker([Number(el.lat),Number(el.lon)],{icon}).addTo(_map);
-          m._ks = true;
-          m.bindPopup(`<div style="min-width:190px;font-family:system-ui">
-            <b style="font-size:14px">${name}</b>
-            <div style="color:${kat.col};font-size:11px;font-weight:700;margin:3px 0">${kat.ico} ${kat.name}</div>
-            ${adresse?`<div style="font-size:11px;color:#555;margin-bottom:4px">📍 ${adresse}</div>`:''}
-            <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
-              <a href="https://www.google.de/search?q=${encodeURIComponent(name+' '+adresse)}" target="_blank"
-                style="background:#4285f422;color:#4285f4;border-radius:5px;padding:4px 8px;font-size:11px;text-decoration:none;font-weight:700">🔍 Google</a>
-              ${!isLead?`<button onclick="karteAddLead('${name.replace(/'/g,"\'")}','${kat.name}',${el.lat},${el.lon},'${adresse.replace(/'/g,"\'")}','')"
-                style="background:#1d4ed8;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:700">+ Lead</button>`
-                :'<span style="color:#10b981;font-size:11px;font-weight:700">✓ Lead</span>'}
-            </div>
-          </div>`);
-          _markers.push(m);
-        }
-
-        allResults.push({name, kat, adresse, tel:'', la:Number(el.lat), lo:Number(el.lon), dist, isLead});
-      });
-
-      // Update counter
-      if (res) res.innerHTML = `<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto 8px"></div>
-        <div style="color:var(--blue);font-weight:700">${i+1}/${suchBegriffe.length} · ${allResults.length} Betriebe gefunden…</div></div>`;
-
-      await new Promise(r=>setTimeout(r,100)); // rate limit
-
-    } catch(e) {
-      console.warn('Suche Fehler:', term, e.message);
-    }
+    karteZeigeErgebnisse(results, lat, lng, km);
+  } catch(e) {
+    res.innerHTML = `<div style="text-align:center;padding:24px">
+      <div style="font-size:32px;margin-bottom:8px">❌</div>
+      <div style="color:var(--red);font-weight:700">Suche fehlgeschlagen</div>
+      <div style="color:var(--text3);font-size:12px;margin:8px 0">${e.message}</div>
+      <button onclick="karteSuche()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-weight:700;cursor:pointer">🔄 Nochmal</button>
+    </div>`;
   }
-
-  // Sort by distance
-  allResults.sort((a,b)=>a.dist-b.dist);
-  karteZeigeErgebnisse(allResults, lat, lng, km);
 }
 
 
@@ -2128,7 +2108,16 @@ function renderGebraucht(){
   const el=document.getElementById('screen-gebraucht');
   el.innerHTML=`
     <div style="padding:16px 16px 0">
-      <h2 style="font-size:20px;font-weight:800;margin-bottom:4px">♻️ Gebrauchtmaschinen</h2>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <h2 style="font-size:20px;font-weight:800">♻️ Gebrauchtmaschinen</h2>
+        <div style="display:flex;gap:6px">
+          <label style="background:var(--blue-dark);color:#fff;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer">
+            📥 PDF/CSV
+            <input type="file" accept=".pdf,.csv,.txt" style="display:none" onchange="gebrauchtImport(this)"/>
+          </label>
+          <button onclick="gebrauchtExport()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer">📤</button>
+        </div>
+      </div>
       <p style="color:var(--text3);font-size:12px;margin-bottom:14px">REICH FOODSYSTEMS · Stand 07.08.2025 · ${GEBRAUCHTWAREN.length} Maschinen verfügbar</p>
       <div class="search-bar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text3)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
@@ -2150,7 +2139,8 @@ function filterGW(t,btn){
 
 function renderGebrauchtList(){
   const q=(document.getElementById('gw-search')?.value||'').toLowerCase();
-  const list=GEBRAUCHTWAREN.filter(m=>{
+  const alleGW = [...GEBRAUCHTWAREN, ...(state.gebrauchtExtra||[])];
+  const list=alleGW.filter(m=>{
     const matchTyp=_gwFilter==='Alle'||m.typ===_gwFilter;
     const matchQ=!q||[m.name,m.kategorie,m.typ,m.beheizung,m.steuerung,m.raucherzeuger,m.notizen,m.wagen].some(v=>(v||'').toLowerCase().includes(q));
     return matchTyp&&matchQ;
@@ -2222,8 +2212,10 @@ function renderAnfragen() {
   const offen = anfragen.filter(a => !a.bearbeitet);
   el.innerHTML = `
     <div style="padding:16px 16px 0">
-      <h2 style="font-size:20px;font-weight:800;margin-bottom:4px">📋 Techniker-Anfragen</h2>
-      <p style="color:var(--text3);font-size:12px;margin-bottom:14px">${offen.length} offen · ${anfragen.filter(a=>a.bearbeitet).length} bearbeitet</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h2 style="font-size:20px;font-weight:800">📋 Techniker-Anfragen</h2>
+      </div>
+      <p style="color:var(--text3);font-size:12px;margin-bottom:10px">${offen.length} offen · ${anfragen.filter(a=>a.bearbeitet).length} bearbeitet</p>
       <div class="filter-tabs" id="af-filter">
         <button class="filter-tab active" onclick="filterAnfragen('offen',this)">Offen (${offen.length})</button>
         <button class="filter-tab" onclick="filterAnfragen('alle',this)">Alle (${anfragen.length})</button>
@@ -3118,6 +3110,226 @@ ${wochenAngebote.length ? `
 }
 
 
+
+async function pdfZuLead(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('pdf-lead-status');
+  status.style.display = 'block';
+  status.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--blue)"><div class="spinner"></div><span>KI liest PDF aus… "${file.name}"</span></div>`;
+
+  try {
+    // Read PDF as base64
+    const b64 = await new Promise((res,rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    // Call Claude API
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+            {type:'text', text:`Lies dieses PDF (Kundendienst-Auftrag, Serviceprotokoll o.ä.) und extrahiere folgende Informationen als JSON:
+{
+  "firma": "Firmenname des Kunden",
+  "kontakt": "Ansprechpartner Name",
+  "telefon": "Telefonnummer",
+  "email": "E-Mail",
+  "strasse": "Straße und Hausnummer",
+  "plz": "Postleitzahl",
+  "ort": "Ort/Stadt",
+  "maschinentyp": "Welche Maschine/Gerätetyp",
+  "problem": "Was ist das Problem oder der Bedarf",
+  "interesse": "Welche Lösung oder Maschine wird benötigt",
+  "branche": "Branche des Kunden (Metzgerei/Bäckerei/etc.)",
+  "techniker": "Name des Technikers falls vorhanden"
+}
+Antworte NUR mit dem JSON, ohne weitere Erklärungen.`}
+          ]
+        }]
+      })
+    });
+
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || '';
+    const clean = text.replace(/\`\`\`json|\`\`\`/g,'').trim();
+    let info;
+    try { info = JSON.parse(clean); } catch(e) { throw new Error('KI konnte PDF nicht lesen'); }
+
+    if (!info.firma || info.firma === 'Unbekannt' || info.firma === '') {
+      throw new Error('Kein Firmenname gefunden in der PDF');
+    }
+
+    // Check if lead already exists
+    const exists = (state.leads||[]).find(l => l.firma === info.firma);
+    if (exists) {
+      status.innerHTML = `<div style="background:#f59e0b22;border:1px solid #f59e0b44;border-radius:8px;padding:10px;font-size:13px">
+        <div style="font-weight:700;color:var(--orange)">⚠️ Lead bereits vorhanden: ${info.firma}</div>
+        <div style="color:var(--text3);margin-top:4px">Notiz wurde aktualisiert: ${info.problem||info.interesse||''}</div>
+      </div>`;
+      // Update existing lead with new info
+      state.leads = state.leads.map(l => l.firma===info.firma ? {
+        ...l,
+        notizen: (l.notizen||'') + `
+
+📄 PDF ${file.name} (${new Date().toLocaleDateString('de-DE')}): ${info.problem||''} | Interesse: ${info.interesse||''}`,
+        letzterKontakt: heute()
+      } : l);
+      save('leads'); updateBadges();
+      return;
+    }
+
+    // Create new lead
+    const d = new Date(); d.setDate(d.getDate()+3);
+    const newLead = {
+      id: Date.now()+'',
+      firma: info.firma,
+      kontakt: info.kontakt||'',
+      email: info.email||'',
+      telefon: info.telefon||'',
+      strasse: info.strasse||'',
+      plz: info.plz||'',
+      ort: info.ort||'',
+      branche: info.branche||'',
+      status: 'Qualifiziert',
+      prioritaet: 'Hoch',
+      naechsterSchritt: info.interesse ? `Angebot für: ${info.interesse}` : 'Angebot erstellen',
+      notizen: `📄 PDF: ${file.name}
+Maschine: ${info.maschinentyp||'–'}
+Problem: ${info.problem||'–'}
+Interesse: ${info.interesse||'–'}
+Techniker: ${info.techniker||'–'}`,
+      pdfName: file.name,
+      erstellt: heute(),
+      letzterKontakt: heute()
+    };
+    state.leads = [...(state.leads||[]), newLead];
+
+    // Auto reminder
+    state.aufgaben = [...(state.aufgaben||[]), {
+      id:'pdf-'+Date.now(),
+      titel:`📄 Angebot erstellen: ${info.firma}`,
+      beschreibung:`Via Techniker-PDF. ${info.interesse||info.problem||''}`,
+      faellig: d.toISOString().split('T')[0],
+      prioritaet:'Hoch', erledigt:false,
+      bezug: info.firma, typ:'Angebot', autoErstellt:true
+    }];
+
+    save('leads'); save('aufgaben'); updateBadges();
+
+    status.innerHTML = `<div style="background:#10b98122;border:1px solid #10b98144;border-radius:8px;padding:12px;font-size:13px">
+      <div style="font-weight:800;color:var(--green);font-size:15px;margin-bottom:6px">✅ Lead automatisch erstellt!</div>
+      <div><b>Firma:</b> ${info.firma}</div>
+      ${info.kontakt?`<div><b>Kontakt:</b> ${info.kontakt}</div>`:''}
+      ${info.telefon?`<div><b>Tel:</b> ${info.telefon}</div>`:''}
+      ${info.ort?`<div><b>Ort:</b> ${info.plz||''} ${info.ort}</div>`:''}
+      ${info.interesse?`<div><b>Interesse:</b> ${info.interesse}</div>`:''}
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button onclick="showTab('leads')" style="flex:1;background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px;font-weight:700;cursor:pointer">👤 Lead öffnen</button>
+        <button onclick="document.getElementById('pdf-lead-status').style.display='none'" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px;font-weight:700;cursor:pointer">✕ Schließen</button>
+      </div>
+    </div>`;
+
+  } catch(e) {
+    status.innerHTML = `<div style="background:#ef444422;border:1px solid #ef444444;border-radius:8px;padding:10px;font-size:13px">
+      <div style="color:var(--red);font-weight:700">❌ Fehler: ${e.message}</div>
+      <div style="color:var(--text3);margin-top:4px">Bitte PDF manuell prüfen</div>
+    </div>`;
+  }
+}
+
+
+async function gebrauchtImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  if (file.name.endsWith('.pdf')) {
+    // Use Claude to extract machine list from PDF
+    const b64 = await new Promise((res,rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    alert('📄 KI liest Gebrauchtmaschinen-Liste aus PDF…
+Dies kann 10-20 Sekunden dauern.');
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:2000,
+          messages:[{role:'user', content:[
+            {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+            {type:'text', text:`Extrahiere alle Maschinen aus dieser Gebrauchtmaschinenliste als JSON-Array:
+[{"name":"Maschinenname/Modell","hersteller":"Firma","preis":"Preis in €","zustand":"Zustand","beschreibung":"kurze Beschreibung"}]
+Antworte NUR mit dem JSON-Array, keine Erklärungen.`}
+          ]}]
+        })
+      });
+      const data = await resp.json();
+      const text = data.content?.[0]?.text||'';
+      const clean = text.replace(/\`\`\`json|\`\`\`/g,'').trim();
+      const maschinen = JSON.parse(clean);
+
+      const mode = confirm(`${maschinen.length} Maschinen gefunden.
+
+OK = Liste ERSETZEN
+Abbrechen = Liste ERWEITERN`);
+      if (mode) {
+        state.gebrauchtExtra = maschinen;
+      } else {
+        state.gebrauchtExtra = [...(state.gebrauchtExtra||[]), ...maschinen];
+      }
+      save('gebrauchtExtra');
+      alert(`✅ ${maschinen.length} Maschinen importiert!`);
+      renderGebraucht();
+    } catch(e) {
+      alert('❌ Fehler beim Import: ' + e.message);
+    }
+
+  } else if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+    const text = await file.text();
+    const lines = text.split('\n').filter(l=>l.trim());
+    const maschinen = lines.slice(1).map(line => {
+      const parts = line.split(';');
+      return {name:parts[0]||'', hersteller:parts[1]||'', preis:parts[2]||'', zustand:parts[3]||'', beschreibung:parts[4]||''};
+    }).filter(m=>m.name);
+
+    const mode = confirm(`${maschinen.length} Maschinen gefunden.
+
+OK = Liste ERSETZEN
+Abbrechen = Liste ERWEITERN`);
+    if (mode) state.gebrauchtExtra = maschinen;
+    else state.gebrauchtExtra = [...(state.gebrauchtExtra||[]), ...maschinen];
+    save('gebrauchtExtra');
+    renderGebraucht();
+  }
+}
+
+function gebrauchtExport() {
+  const alle = [...(state.gebrauchtExtra||[])];
+  if (!alle.length) { alert('Keine eigenen Maschinen zum Exportieren.'); return; }
+  const csv = 'Name;Hersteller;Preis;Zustand;Beschreibung\n' +
+    alle.map(m=>`${m.name};${m.hersteller||''};${m.preis||''};${m.zustand||''};${m.beschreibung||''}`).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Gebrauchtmaschinen.csv';
+  a.click();
+}
+
 // ═══════════════════════════════════════════════════════
 // RENDERS MAP
 // ═══════════════════════════════════════════════════════
@@ -3140,6 +3352,7 @@ async function init(){
     state.videos=v||[];
     state.besuche=bes||[];
     state.ziele=zie||{};
+    state.gebrauchtExtra=(await DB.get('gebrauchtExtra'))||[];
     state.anfragen=anf||[
   {id:'anf1',firma:'Engel GmbH Blankenheim',strasse:'Ahrstr. 32',plz:'53945',ort:'Blankenheim',
    telefon:'(02449) 1047',email:'metzgerei-engel@t-online.de',interesse:'GRAEF (Aufschnittmaschinen) – Master Linie',
