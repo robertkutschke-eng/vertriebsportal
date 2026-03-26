@@ -1044,7 +1044,7 @@ async function karteSuche() {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(()=>ctrl.abort(), 15000);
-        res.innerHTML = `<div style="text-align:center;padding:24px"><div class="spinner" style="margin:0 auto 12px"></div><b style="color:var(--blue)">Verbinde mit ${mirror.split('/')[2]}…</b></div>`;
+        res.innerHTML = '<div style="text-align:center;padding:24px"><div class="spinner" style="margin:0 auto 12px"></div><b style="color:var(--blue)">Verbinde… '+mirror.split('/')[2]+'</b></div>';
         const resp = await fetch(mirror, {
           method:'POST',
           body:'data='+encodeURIComponent(query),
@@ -3184,7 +3184,7 @@ Antworte NUR mit dem JSON, ohne weitere Erklärungen.`}
 
     const data = await resp.json();
     const text = data.content?.[0]?.text || '';
-    const clean = text.replace(/\`\`\`json|\`\`\`/g,'').trim();
+    const clean = text.replace(/```json|```/g,'').trim();
     let info;
     try { info = JSON.parse(clean); } catch(e) { throw new Error('KI konnte PDF nicht lesen'); }
 
@@ -3303,7 +3303,7 @@ Antworte NUR mit dem JSON-Array, keine Erklärungen.`}
       });
       const data = await resp.json();
       const text = data.content?.[0]?.text||'';
-      const clean = text.replace(/\`\`\`json|\`\`\`/g,'').trim();
+      const clean = text.replace(/```json|```/g,'').trim();
       const maschinen = JSON.parse(clean);
 
       const mode = confirm(`${maschinen.length} Maschinen gefunden.
