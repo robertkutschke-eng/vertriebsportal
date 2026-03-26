@@ -3161,22 +3161,7 @@ async function pdfZuLead(input) {
           role: 'user',
           content: [
             {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
-            {type:'text', text:`Lies dieses PDF (Kundendienst-Auftrag, Serviceprotokoll o.ä.) und extrahiere folgende Informationen als JSON:
-{
-  "firma": "Firmenname des Kunden",
-  "kontakt": "Ansprechpartner Name",
-  "telefon": "Telefonnummer",
-  "email": "E-Mail",
-  "strasse": "Straße und Hausnummer",
-  "plz": "Postleitzahl",
-  "ort": "Ort/Stadt",
-  "maschinentyp": "Welche Maschine/Gerätetyp",
-  "problem": "Was ist das Problem oder der Bedarf",
-  "interesse": "Welche Lösung oder Maschine wird benötigt",
-  "branche": "Branche des Kunden (Metzgerei/Bäckerei/etc.)",
-  "techniker": "Name des Technikers falls vorhanden"
-}
-Antworte NUR mit dem JSON, ohne weitere Erklärungen.`}
+            {type:'text', text:'Lies dieses PDF (Kundendienst-Auftrag, Serviceprotokoll o.ä.) und extrahiere folgende Informationen als JSON: {   "firma": "Firmenname des Kunden",   "kontakt": "Ansprechpartner Name",   "telefon": "Telefonnummer",   "email": "E-Mail",   "strasse": "Straße und Hausnummer",   "plz": "Postleitzahl",   "ort": "Ort/Stadt",   "maschinentyp": "Welche Maschine/Gerätetyp",   "problem": "Was ist das Problem oder der Bedarf",   "interesse": "Welche Lösung oder Maschine wird benötigt",   "branche": "Branche des Kunden (Metzgerei/Bäckerei/etc.)",   "techniker": "Name des Technikers falls vorhanden" } Antworte NUR mit dem JSON, ohne weitere Erklärungen.'}
           ]
         }]
       })
@@ -3284,8 +3269,7 @@ async function gebrauchtImport(input) {
       r.readAsDataURL(file);
     });
 
-    alert('📄 KI liest Gebrauchtmaschinen-Liste aus PDF…
-Dies kann 10-20 Sekunden dauern.');
+    alert('KI liest Gebrauchtmaschinen-Liste aus PDF. Dies kann 10-20 Sekunden dauern.');
 
     try {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -3295,9 +3279,7 @@ Dies kann 10-20 Sekunden dauern.');
           model:'claude-sonnet-4-20250514', max_tokens:2000,
           messages:[{role:'user', content:[
             {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
-            {type:'text', text:`Extrahiere alle Maschinen aus dieser Gebrauchtmaschinenliste als JSON-Array:
-[{"name":"Maschinenname/Modell","hersteller":"Firma","preis":"Preis in €","zustand":"Zustand","beschreibung":"kurze Beschreibung"}]
-Antworte NUR mit dem JSON-Array, keine Erklärungen.`}
+            {type:'text', text:'Extrahiere alle Maschinen aus dieser Gebrauchtmaschinenliste als JSON-Array: [{"name":"Maschinenname","hersteller":"Firma","preis":"Preis","zustand":"Zustand","beschreibung":"Beschreibung"}] Antworte NUR mit dem JSON-Array.'}
           ]}]
         })
       });
@@ -3306,10 +3288,7 @@ Antworte NUR mit dem JSON-Array, keine Erklärungen.`}
       const clean = text.replace(/```json|```/g,'').trim();
       const maschinen = JSON.parse(clean);
 
-      const mode = confirm(`${maschinen.length} Maschinen gefunden.
-
-OK = Liste ERSETZEN
-Abbrechen = Liste ERWEITERN`);
+      const mode = confirm('${maschinen.length} Maschinen gefunden.\n\nOK = Liste ERSETZEN\nAbbrechen = Liste ERWEITERN');
       if (mode) {
         state.gebrauchtExtra = maschinen;
       } else {
@@ -3330,10 +3309,7 @@ Abbrechen = Liste ERWEITERN`);
       return {name:parts[0]||'', hersteller:parts[1]||'', preis:parts[2]||'', zustand:parts[3]||'', beschreibung:parts[4]||''};
     }).filter(m=>m.name);
 
-    const mode = confirm(`${maschinen.length} Maschinen gefunden.
-
-OK = Liste ERSETZEN
-Abbrechen = Liste ERWEITERN`);
+    const mode = confirm('${maschinen.length} Maschinen gefunden.\n\nOK = Liste ERSETZEN\nAbbrechen = Liste ERWEITERN');
     if (mode) state.gebrauchtExtra = maschinen;
     else state.gebrauchtExtra = [...(state.gebrauchtExtra||[]), ...maschinen];
     save('gebrauchtExtra');
