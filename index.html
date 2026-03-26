@@ -191,7 +191,7 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
   <div id="screen-karte" class="screen" style="padding:12px;padding-bottom:80px"></div>
   <div id="screen-katalog" class="screen"></div>
   <div id="screen-youtube" class="screen"></div>
-  <div id="screen-ki" class="screen" style="padding:0;flex-direction:column"></div>
+
   <div id="screen-stats" class="screen content"></div>
   <div id="screen-gebraucht" class="screen"></div>
   <div id="screen-anfragen" class="screen"></div>
@@ -222,10 +222,7 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
       Karte
     </button>
-    <button class="nav-btn" onclick="showTab('ki')" id="nav-ki">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm0-14a4 4 0 1 0 4 4 4 4 0 0 0-4-4zm0 6a2 2 0 1 1 2-2 2 2 0 0 1-2 2z"/></svg>
-      KI
-    </button>
+
     <button class="nav-btn" onclick="showTab('stats')" id="nav-stats">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
       Analyse
@@ -361,7 +358,6 @@ function showTab(tab){
   renders[tab]&&renders[tab]();
   // init map only when visible
   if(tab==='karte')setTimeout(initMap,100);
-  if(tab==='ki')document.getElementById('ki-input')&&document.getElementById('ki-input').focus();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2914,7 +2910,7 @@ function deleteBesuch(id) {
 // ═══════════════════════════════════════════════════════
 const renders={
   dashboard:renderDashboard,leads:renderLeads,angebote:renderAngebote,
-  aufgaben:renderAufgaben,karte:renderKarte,ki:renderKI,
+  aufgaben:renderAufgaben,karte:renderKarte,
   stats:renderStats,katalog:renderKatalog,youtube:renderYoutube,gebraucht:renderGebraucht,anfragen:renderAnfragen,kalender:renderKalender,heute:renderHeute,besuche:renderBesuche
 };
 
