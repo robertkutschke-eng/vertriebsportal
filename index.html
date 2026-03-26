@@ -442,7 +442,9 @@ function renderLeadList(){
           <button class="btn btn-sm btn-danger" onclick="deleteLead('${l.id}')">🗑</button>
         </div>
       </div>
-      <div style="color:var(--text2);font-size:13px;margin-bottom:${l.telefon||l.email?'10px':'0'}">👤 ${l.kontakt||'–'}${l.branche?` &nbsp;🏢 ${l.branche}`:''}</div>
+      <div style="color:var(--text2);font-size:13px;margin-bottom:6px">👤 ${l.kontakt||'–'}${l.branche?` &nbsp;🏢 ${l.branche}`:''}</div>
+      ${(l.strasse||l.ort)?`<div style="color:var(--text3);font-size:12px;margin-bottom:4px">📍 ${[l.strasse,l.plz,l.ort].filter(Boolean).join(', ')}</div>`:''}
+      ${l.website?`<a href="${l.website.startsWith('http')?l.website:'https://'+l.website}" target="_blank" style="color:var(--blue);font-size:12px;display:block;margin-bottom:4px">🌐 ${l.website}</a>`:''}
       ${l.telefon?`<div style="display:flex;gap:8px;margin-bottom:8px">
         <a href="https://api.whatsapp.com/send?phone=${(l.telefon||'').replace(/[^0-9]/g,'')}&text=Hallo ${encodeURIComponent(l.kontakt||l.firma)},%0A%0A" class="btn btn-sm btn-wa" style="flex:1;text-decoration:none">💬 WA Business</a>
         <a href="tel:${l.telefon}" class="btn btn-sm btn-secondary" style="flex:1;text-decoration:none">📞 Anrufen</a>
@@ -463,11 +465,24 @@ function deleteLead(id){if(confirm('Lead löschen?')){state.leads=state.leads.fi
 
 function openLeadForm(id){
   const l=id?state.leads.find(x=>x.id===id):{};
-  const fields=[['Firma *','firma'],['Kontaktperson','kontakt'],['E-Mail','email'],['Telefon','telefon'],['Branche','branche'],['Nächster Schritt','naechsterSchritt']];
   const statuses=['Neu','Kontaktiert','Qualifiziert','Angebot','In Verhandlung'];
+  const branchen=['Metzgerei','Bäckerei','Fischerei','Gastronomie','Café/Bistro','Supermarkt','Bio/Reform','Catering','Hotel','Krankenhaus','Pflegeheim','Seniorenheim','Sonstige'];
   openSheet(`
     <div class="sheet-title">${id?'Lead bearbeiten':'Neuer Lead'}</div>
-    ${fields.map(([lbl,k])=>`<div class="field"><label>${lbl}</label><input id="lf-${k}" value="${l[k]||''}" placeholder="${lbl}"/></div>`).join('')}
+    <div class="field"><label>Firma *</label><input id="lf-firma" value="${l.firma||''}" placeholder="Firmenname"/></div>
+    <div class="field"><label>Kontaktperson</label><input id="lf-kontakt" value="${l.kontakt||''}" placeholder="Name, Funktion"/></div>
+    <div class="field"><label>Telefon</label><input id="lf-telefon" value="${l.telefon||''}" placeholder="+49 123 456789" type="tel"/></div>
+    <div class="field"><label>E-Mail</label><input id="lf-email" value="${l.email||''}" placeholder="info@firma.de" type="email"/></div>
+    <div class="field"><label>Straße / Hausnummer</label><input id="lf-strasse" value="${l.strasse||''}" placeholder="Musterstraße 1"/></div>
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:1"><label>PLZ</label><input id="lf-plz" value="${l.plz||''}" placeholder="12345"/></div>
+      <div class="field" style="flex:2"><label>Ort</label><input id="lf-ort" value="${l.ort||''}" placeholder="Musterstadt"/></div>
+    </div>
+    <div class="field"><label>Website</label><input id="lf-website" value="${l.website||''}" placeholder="www.firma.de"/></div>
+    <div class="field"><label>Branche</label>
+      <select id="lf-branche">${branchen.map(b=>`<option ${(l.branche||'')==b?'selected':''}>${b}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Nächster Schritt</label><input id="lf-naechsterSchritt" value="${l.naechsterSchritt||''}" placeholder="z.B. Angebot zusenden"/></div>
     <div class="field"><label>Status</label><select id="lf-status">${statuses.map(s=>`<option ${(l.status||'Neu')===s?'selected':''}>${s}</option>`).join('')}</select></div>
     <div class="field"><label>Priorität</label><select id="lf-prioritaet"><option ${(l.prioritaet||'Mittel')==='Hoch'?'selected':''}>Hoch</option><option ${(l.prioritaet||'Mittel')==='Mittel'?'selected':''}>Mittel</option><option ${(l.prioritaet||'Mittel')==='Niedrig'?'selected':''}>Niedrig</option></select></div>
     <div class="field"><label>Notizen</label><textarea id="lf-notizen">${l.notizen||''}</textarea></div>
@@ -520,7 +535,10 @@ function clearLeadPDF() {
 
 function saveLead(id){
   const get=k=>document.getElementById('lf-'+k)?.value||'';
-  const data={firma:get('firma'),kontakt:get('kontakt'),email:get('email'),telefon:get('telefon'),branche:get('branche'),naechsterSchritt:get('naechsterSchritt'),status:get('status'),prioritaet:get('prioritaet'),notizen:get('notizen')};
+  const data={firma:get('firma'),kontakt:get('kontakt'),email:get('email'),telefon:get('telefon'),
+    strasse:get('strasse'),plz:get('plz'),ort:get('ort'),website:get('website'),
+    branche:get('branche'),naechsterSchritt:get('naechsterSchritt'),status:get('status'),
+    prioritaet:get('prioritaet'),notizen:get('notizen')};
   if(!data.firma){alert('Firma ist Pflichtfeld');return;}
   // Handle PDF
   const pdfInput=document.getElementById('lf-pdf-file');
@@ -860,7 +878,13 @@ function getBranchenOSMQuery(brancheIds, radius, lat, lng) {
       parts.push(`way["${k}"="${v}"](around:${radius},${lat},${lng});`);
     });
   });
-  return `[out:json][timeout:30];(${parts.join('')});out center;`;
+  // Extra keyword search for German business names
+  const keywords=['Metzgerei','Fleischerei','Bäckerei','Konditorei','Fischerei','Fischladen','Pflegeheim','Altenheim','Seniorenheim','Krankenhaus','Klinik','Gasthof','Gaststätte','Imbiss'];
+  keywords.forEach(kw=>{
+    parts.push(`node["name"~"${kw}",i](around:${radius},${lat},${lng});`);
+    parts.push(`way["name"~"${kw}",i](around:${radius},${lat},${lng});`);
+  });
+  return `[out:json][timeout:35];(${parts.join('')});out center tags;`;
 }
 
 function brancheForResult(tags) {
@@ -1059,6 +1083,7 @@ function renderMapResultsList() {
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
               ${r.telefon?`<a href="tel:${r.telefon}" style="background:#10b98122;color:var(--green);border-radius:6px;padding:4px 8px;font-size:12px;text-decoration:none">📞</a>`:''}
+              <a href="https://www.google.de/search?q=${encodeURIComponent(r.name+' '+r.adresse)}" target="_blank" style="background:#4285f422;color:#4285f4;border-radius:6px;padding:4px 8px;font-size:11px;text-decoration:none" title="Google Suche">🔍</a>
               ${!r.isLead?`<button onclick="addLeadFromMap('${r.name.replace(/'/g,"\'")}','${r.branche.label}',${r.lat},${r.lng},'${(r.adresse||'').replace(/'/g,"\'")}','${r.telefon||''}')" style="background:var(--blue-dark);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:700">+Lead</button>`:'<span style="color:var(--green);font-size:11px;font-weight:700;padding:4px 8px">✓</span>'}
             </div>
           </div>`).join('')}
