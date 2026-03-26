@@ -756,7 +756,7 @@ function filterAufgaben(f,btn){
           ${t.beschreibung?`<div style="color:var(--text3);font-size:13px;margin-bottom:4px">${t.beschreibung}</div>`:''}
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             ${t.bezug?`<span style="color:var(--blue);font-size:12px">🏢 ${t.bezug}</span>`:''}
-            ${t.faellig?`<span style="color:${ov?'var(--red)':'var(--text3)'};font-size:12px;font-weight:${ov?700:400}">📅 ${t.faellig}</span>`:''}
+            ${t.faellig?`<span style="color:${ov?'var(--red)':'var(--text3)'};font-size:12px;font-weight:${ov?700:400}">📅 ${t.faellig}${t.uhrzeit?' 🕐 '+t.uhrzeit+' Uhr':''}</span>`:''}
           </div>
           ${kanalHtml}
         </div>
@@ -778,7 +778,12 @@ function openAufgabeForm(id){
     <div class="sheet-title">${id?'Aufgabe bearbeiten':'Neue Aufgabe'}</div>
     <div class="field"><label>Titel *</label><input id="tf-titel" value="${t.titel||''}"/></div>
     <div class="field"><label>Bezug (Firma)</label><input id="tf-bezug" value="${t.bezug||''}"/></div>
-    <div class="field"><label>Fällig (YYYY-MM-DD)</label><input id="tf-faellig" value="${t.faellig||''}"/></div>
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:2"><label>Fällig (Datum)</label>
+        <input type="date" id="tf-faellig" value="${t.faellig||''}"/></div>
+      <div class="field" style="flex:1"><label>Uhrzeit</label>
+        <input type="time" id="tf-uhrzeit" value="${t.uhrzeit||''}"/></div>
+    </div>
     <div class="field"><label>Beschreibung</label><textarea id="tf-beschreibung">${t.beschreibung||''}</textarea></div>
     <div class="field"><label>Priorität</label><select id="tf-prioritaet">${['Hoch','Mittel','Niedrig'].map(p=>`<option ${(t.prioritaet||'Mittel')===p?'selected':''}>${p}</option>`).join('')}</select></div>
     <div style="display:flex;gap:10px;margin-top:8px">
@@ -789,7 +794,7 @@ function openAufgabeForm(id){
 
 function saveAufgabe(id){
   const g=k=>document.getElementById('tf-'+k)?.value||'';
-  const data={titel:g('titel'),bezug:g('bezug'),faellig:g('faellig'),beschreibung:g('beschreibung'),prioritaet:g('prioritaet'),typ:'Aufgabe',erledigt:false};
+  const data={titel:g('titel'),bezug:g('bezug'),faellig:g('faellig'),uhrzeit:document.getElementById('tf-uhrzeit')?.value||'',beschreibung:g('beschreibung'),prioritaet:g('prioritaet'),typ:'Aufgabe',erledigt:false};
   if(!data.titel){alert('Titel ist Pflichtfeld');return;}
   if(id)state.aufgaben=state.aufgaben.map(t=>t.id===id?{...t,...data}:t);
   else state.aufgaben=[...state.aufgaben,{...data,id:Date.now()+''}];
@@ -1503,11 +1508,20 @@ function openTelefonatNotiz(leadId) {
 
     <div style="background:var(--input);border:1px solid var(--blue);border-radius:10px;padding:14px;margin-bottom:16px">
       <div style="color:var(--blue);font-size:13px;font-weight:700;margin-bottom:10px">📅 Folgetermin / Erinnerung</div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <input type="checkbox" id="tn-reminder-check" checked style="width:20px;height:20px;accent-color:var(--blue)"/>
-        <div style="flex:1">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+        <input type="checkbox" id="tn-reminder-check" checked style="width:20px;height:20px;accent-color:var(--blue);flex-shrink:0"/>
+        <label style="color:var(--text2);font-size:13px">Erinnerung aktivieren</label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:2">
+          <div style="color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Datum</div>
           <input type="date" id="tn-reminder-date" value="${(() => { const d=new Date(); d.setDate(d.getDate()+3); return d.toISOString().split('T')[0]; })()}"
-            style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:15px"/>
+            style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px"/>
+        </div>
+        <div style="flex:1">
+          <div style="color:var(--text3);font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Uhrzeit</div>
+          <input type="time" id="tn-reminder-time" value="09:00"
+            style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px"/>
         </div>
       </div>
     </div>
@@ -1550,13 +1564,15 @@ ${oldNotizen}` : newEintrag
 
   // Auto Aufgabe
   if (reminderCheck && reminderDate) {
+    const reminderTime = document.getElementById('tn-reminder-time')?.value || '';
+    const firma = state.leads.find(l=>l.id===leadId)?.firma||'';
     const aufg = {
       id: 'tel-' + Date.now(),
-      titel: `📞 Nachfassen: ${state.leads.find(l=>l.id===leadId)?.firma||''}`,
-      beschreibung: `Telefonat vom ${heute()}: ${notiz.slice(0,100)}${notiz.length>100?'...':''}`,
-      faellig: reminderDate, prioritaet: 'Hoch', erledigt: false,
-      bezug: state.leads.find(l=>l.id===leadId)?.firma||'',
-      typ: 'Nachfass', autoErstellt: true,
+      titel: `📞 Nachfassen: ${firma}${reminderTime ? ' um '+reminderTime+' Uhr' : ''}`,
+      beschreibung: `Telefonat vom ${heute()} ${timeStr} Uhr: ${notiz.slice(0,100)}${notiz.length>100?'...':''}`,
+      faellig: reminderDate, uhrzeit: reminderTime,
+      prioritaet: 'Hoch', erledigt: false,
+      bezug: firma, typ: 'Nachfass', autoErstellt: true,
       kanal: state.leads.find(l=>l.id===leadId)?.email ? 'email' : null
     };
     state.aufgaben = [...(state.aufgaben||[]), aufg];
@@ -1658,7 +1674,7 @@ function renderKalenderMonth(el, year, month) {
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div style="flex:1">
                 <div style="font-size:13px;font-weight:700">${t.titel}</div>
-                <div style="font-size:11px;color:var(--text3)">${t.bezug||''}</div>
+                <div style="font-size:11px;color:var(--text3)">${t.uhrzeit ? '🕐 '+t.uhrzeit+' Uhr · ' : ''}${t.bezug||''}</div>
               </div>
               <div style="text-align:right">
                 <div style="font-size:12px;font-weight:700;color:${t.faellig===heute_str?'#f59e0b':'var(--blue)'}">${t.faellig}</div>
@@ -1720,44 +1736,112 @@ function openDayEvents(dateStr) {
   `);
 }
 
-function openNeuerTermin(prefillDate) {
+function openNeuerTermin(prefillDate, prefillTime) {
   const erinnerDatum = prefillDate || (() => { const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0]; })();
+  const now = new Date();
+  const defaultTime = prefillTime || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const reminderDate = (() => { const d=new Date(erinnerDatum); d.setDate(d.getDate()-1); return d.toISOString().split('T')[0]; })();
+
   openSheet(`
     <div class="sheet-title">📅 Neuer Termin</div>
     <div class="field"><label>Titel *</label>
       <input id="kt-titel" placeholder="z.B. Demo bei Müller GmbH, Anruf Weber…"/></div>
-    <div class="field"><label>Datum *</label>
-      <input type="date" id="kt-datum" value="${erinnerDatum}"/></div>
+
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:2"><label>Datum *</label>
+        <input type="date" id="kt-datum" value="${erinnerDatum}"/></div>
+      <div class="field" style="flex:1"><label>Uhrzeit</label>
+        <input type="time" id="kt-uhrzeit" value="${defaultTime}"/></div>
+    </div>
+
     <div class="field"><label>Firma / Bezug</label>
       <input id="kt-bezug" placeholder="z.B. Müller GmbH"/></div>
     <div class="field"><label>Beschreibung</label>
       <textarea id="kt-beschreibung" rows="3" placeholder="Was ist geplant?"></textarea></div>
     <div class="field"><label>Priorität</label>
       <select id="kt-prioritaet"><option>Hoch</option><option selected>Mittel</option><option>Niedrig</option></select></div>
+
+    <div style="background:var(--input);border:1px solid var(--blue);border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="color:var(--blue);font-size:13px;font-weight:700;margin-bottom:10px">🔔 Erinnerung</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input type="checkbox" id="kt-reminder-check" checked style="width:20px;height:20px;accent-color:var(--blue);flex-shrink:0"/>
+        <select id="kt-reminder-type" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px">
+          <option value="1day">1 Tag vorher</option>
+          <option value="2days">2 Tage vorher</option>
+          <option value="3days" selected>3 Tage vorher</option>
+          <option value="1week">1 Woche vorher</option>
+          <option value="custom">Eigenes Datum</option>
+        </select>
+      </div>
+      <div id="kt-reminder-custom" style="display:none;margin-top:10px">
+        <input type="date" id="kt-reminder-date" value="${reminderDate}"
+          style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px"/>
+      </div>
+    </div>
+
     <div style="display:flex;gap:10px;margin-top:8px">
       <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
       <button class="btn btn-primary btn-full" onclick="saveNeuerTermin()">📅 Speichern</button>
     </div>`);
-  setTimeout(()=>document.getElementById('kt-titel')?.focus(), 300);
+
+  setTimeout(()=>{
+    document.getElementById('kt-titel')?.focus();
+    document.getElementById('kt-reminder-type')?.addEventListener('change', function() {
+      document.getElementById('kt-reminder-custom').style.display = this.value === 'custom' ? 'block' : 'none';
+    });
+  }, 300);
 }
 
 function saveNeuerTermin() {
   const titel = document.getElementById('kt-titel')?.value?.trim();
   const datum = document.getElementById('kt-datum')?.value;
+  const uhrzeit = document.getElementById('kt-uhrzeit')?.value || '';
   if (!titel || !datum) { alert('Bitte Titel und Datum eingeben'); return; }
+
   const aufg = {
     id: 'kal-' + Date.now(),
-    titel, faellig: datum,
+    titel, faellig: datum, uhrzeit,
     bezug: document.getElementById('kt-bezug')?.value || '',
     beschreibung: document.getElementById('kt-beschreibung')?.value || '',
     prioritaet: document.getElementById('kt-prioritaet')?.value || 'Mittel',
     erledigt: false, typ: 'Termin', autoErstellt: false
   };
   state.aufgaben = [...(state.aufgaben||[]), aufg];
+
+  // Create reminder
+  const reminderCheck = document.getElementById('kt-reminder-check')?.checked;
+  if (reminderCheck) {
+    const reminderType = document.getElementById('kt-reminder-type')?.value || '3days';
+    let reminderDate;
+    if (reminderType === 'custom') {
+      reminderDate = document.getElementById('kt-reminder-date')?.value;
+    } else {
+      const d = new Date(datum);
+      if (reminderType === '1day') d.setDate(d.getDate()-1);
+      else if (reminderType === '2days') d.setDate(d.getDate()-2);
+      else if (reminderType === '3days') d.setDate(d.getDate()-3);
+      else if (reminderType === '1week') d.setDate(d.getDate()-7);
+      reminderDate = d.toISOString().split('T')[0];
+    }
+    if (reminderDate && reminderDate !== datum) {
+      const erinnerAufg = {
+        id: 'rem-' + Date.now(),
+        titel: `🔔 Erinnerung: ${titel}${uhrzeit ? ' um '+uhrzeit+' Uhr' : ''}`,
+        beschreibung: `Termin am ${datum}${uhrzeit ? ' um '+uhrzeit+' Uhr' : ''}${aufg.bezug ? ' · '+aufg.bezug : ''}`,
+        faellig: reminderDate, prioritaet: aufg.prioritaet,
+        erledigt: false, typ: 'Erinnerung', autoErstellt: true,
+        bezug: aufg.bezug
+      };
+      state.aufgaben = [...state.aufgaben, erinnerAufg];
+    }
+  }
+
   save('aufgaben');
   updateBadges();
   closeSheet();
   renderKalender();
+  const uhrzeitText = uhrzeit ? ` um ${uhrzeit} Uhr` : '';
+  alert(`✅ Termin gespeichert!\n📅 ${datum}${uhrzeitText}${reminderCheck ? '\n🔔 Erinnerung wird angezeigt' : ''}`);
 }
 
 
