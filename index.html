@@ -146,7 +146,17 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
       <div class="setup-step"><div class="step-num">2</div><p style="color:var(--text3);font-size:13px">Zahnrad ⚙️ → Projekteinstellungen → Web-App <b style="color:var(--text)">&lt;/&gt;</b> → firebaseConfig kopieren</p></div>
       <div class="setup-step"><div class="step-num">3</div><p style="color:var(--text3);font-size:13px">Firestore Database → <b style="color:var(--text)">Testmodus</b> aktivieren</p></div>
     </div>
-    <div class="field"><label>API KEY</label><input id="cfg-key" placeholder="AIzaSy..." autocomplete="off"/></div>
+    <div style="background:#a855f722;border:1px solid #a855f744;border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="color:#a855f7;font-weight:700;font-size:13px;margin-bottom:8px">🤖 Anthropic API-Key (für KI-Assistent)</div>
+      <div class="field" style="margin-bottom:0"><label>ANTHROPIC API-KEY</label>
+        <input id="cfg-anthropic" placeholder="sk-ant-api03-..." autocomplete="off" 
+          value="${localStorage.getItem('vp_apikey')||''}"
+          style="background:var(--input);border:1px solid #a855f744"/>
+      </div>
+      <p style="color:var(--text4);font-size:11px;margin-top:6px">Unter console.anthropic.com → API Keys erstellen</p>
+    </div>
+    <div style="color:var(--text3);font-size:12px;font-weight:700;margin-bottom:10px">🔥 Firebase (optional – für Sync zwischen Geräten)</div>
+    <div class="field"><label>FIREBASE API KEY</label><input id="cfg-key" placeholder="AIzaSy..." autocomplete="off"/></div>
     <div class="field"><label>PROJECT ID</label><input id="cfg-proj" placeholder="vertrieb-as" autocomplete="off"/></div>
     <div class="field"><label>APP ID</label><input id="cfg-app" placeholder="1:52561607646:web:..." autocomplete="off"/></div>
     <button class="btn btn-primary btn-full" onclick="saveConfig()" style="margin-top:8px">✓ Speichern &amp; App starten</button>
@@ -426,7 +436,10 @@ function renderLeadList(){
       ${l.email?`<a href="mailto:${l.email}?subject=Ihre Anfrage&body=Sehr geehrte/r ${encodeURIComponent(l.kontakt||'')}" class="btn btn-sm btn-email btn-full" style="text-decoration:none;margin-bottom:8px">✉️ E-Mail: ${l.email}</a>`:''}
       ${l.naechsterSchritt?`<div style="color:var(--blue);font-size:13px;margin-top:6px">➡️ ${l.naechsterSchritt}</div>`:''}
       ${l.notizen?`<div style="background:var(--input);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12px;color:var(--text3);line-height:1.5;max-height:80px;overflow:hidden">${l.notizen.slice(0,200)}${l.notizen.length>200?'…':''}</div>`:''}
-      <button onclick="openTelefonatNotiz('${l.id}')" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+      ${l.pdfData?`<button onclick="openLeadPDF('${l.id}')" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+        📄 PDF öffnen: ${l.pdfName||'Anhang'}
+      </button>`:''}
+      <button onclick="openTelefonatNotiz('${l.id}')" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
         📞 Telefonat-Notiz eintragen
       </button>
     </div>`).join(''):`<div style="text-align:center;padding:40px;color:var(--text3)">Keine Leads gefunden</div>`;
@@ -444,16 +457,80 @@ function openLeadForm(id){
     <div class="field"><label>Status</label><select id="lf-status">${statuses.map(s=>`<option ${(l.status||'Neu')===s?'selected':''}>${s}</option>`).join('')}</select></div>
     <div class="field"><label>Priorität</label><select id="lf-prioritaet"><option ${(l.prioritaet||'Mittel')==='Hoch'?'selected':''}>Hoch</option><option ${(l.prioritaet||'Mittel')==='Mittel'?'selected':''}>Mittel</option><option ${(l.prioritaet||'Mittel')==='Niedrig'?'selected':''}>Niedrig</option></select></div>
     <div class="field"><label>Notizen</label><textarea id="lf-notizen">${l.notizen||''}</textarea></div>
+    <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📎 PDF Anhang</div>
+      <div id="lf-pdf-preview" style="margin-bottom:8px"></div>
+      <label style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:12px;cursor:pointer">
+        <span style="font-size:20px">📄</span>
+        <div>
+          <div style="color:var(--text);font-size:13px;font-weight:600">PDF hochladen</div>
+          <div style="color:var(--text3);font-size:11px">Angebot, Auftrag, Anfrage…</div>
+        </div>
+        <input type="file" id="lf-pdf-file" accept=".pdf,application/pdf" style="display:none" onchange="previewLeadPDF(this)"/>
+      </label>
+    </div>
     <div style="display:flex;gap:10px;margin-top:8px">
       <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
       <button class="btn btn-primary btn-full" onclick="saveLead('${id||''}')">Speichern</button>
     </div>`);
+  // Pre-fill PDF if exists
+  if(l.pdfName){
+    setTimeout(()=>{
+      const prev=document.getElementById('lf-pdf-preview');
+      if(prev)prev.innerHTML=`<div style="background:#3b82f622;border:1px solid #3b82f644;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">📄</span>
+        <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--text)">${l.pdfName}</div><div style="font-size:11px;color:var(--text3)">Bereits gespeichert</div></div>
+        <button onclick="clearLeadPDF()" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button>
+      </div>`;
+    },100);
+  }
+}
+
+function previewLeadPDF(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const prev = document.getElementById('lf-pdf-preview');
+  if (prev) prev.innerHTML = `<div style="background:#10b98122;border:1px solid #10b98144;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:18px">📄</span>
+    <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--text)">${file.name}</div><div style="font-size:11px;color:var(--text3)">${(file.size/1024).toFixed(0)} KB · bereit zum Speichern</div></div>
+    <button onclick="clearLeadPDF()" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button>
+  </div>`;
+}
+
+function clearLeadPDF() {
+  const input = document.getElementById('lf-pdf-file');
+  if (input) input.value = '';
+  const prev = document.getElementById('lf-pdf-preview');
+  if (prev) prev.innerHTML = '';
 }
 
 function saveLead(id){
   const get=k=>document.getElementById('lf-'+k)?.value||'';
   const data={firma:get('firma'),kontakt:get('kontakt'),email:get('email'),telefon:get('telefon'),branche:get('branche'),naechsterSchritt:get('naechsterSchritt'),status:get('status'),prioritaet:get('prioritaet'),notizen:get('notizen')};
   if(!data.firma){alert('Firma ist Pflichtfeld');return;}
+  // Handle PDF
+  const pdfInput=document.getElementById('lf-pdf-file');
+  const pdfFile=pdfInput?.files?.[0];
+  if(pdfFile){
+    const reader=new FileReader();
+    reader.onload=()=>{
+      data.pdfData=reader.result;
+      data.pdfName=pdfFile.name;
+      data.pdfSize=pdfFile.size;
+      _finalizeSaveLead(id,data);
+    };
+    reader.readAsDataURL(pdfFile);
+    return;
+  }
+  // Keep existing PDF if no new one selected
+  if(id){
+    const existing=state.leads.find(l=>l.id===id);
+    if(existing?.pdfData){data.pdfData=existing.pdfData;data.pdfName=existing.pdfName;data.pdfSize=existing.pdfSize;}
+  }
+  _finalizeSaveLead(id,data);
+}
+
+function _finalizeSaveLead(id,data){
   if(id){state.leads=state.leads.map(l=>l.id===id?{...l,...data,letzterKontakt:heute()}:l);}
   else {
     const newLead={...data,id:Date.now()+'',erstellt:heute(),letzterKontakt:heute()};
@@ -508,7 +585,7 @@ function renderAngebote(){
           </div>
           <div style="margin-top:10px;display:flex;gap:6px">
             <button onclick="event.stopPropagation();angebotZuLead('${a.id}')" class="btn btn-sm btn-primary" style="flex:1">👤 Als Lead</button>
-            <button onclick="event.stopPropagation();showTab('ki');setTimeout(()=>{const i=document.getElementById('ki-input');if(i){i.value='Hilf mir das Angebot ${a.titel.replace(/'/g,"\\'").replace(/"/g,"'")} bei ${a.firma} abzuschließen';i.focus();}},400)" class="btn btn-sm btn-ai" style="flex:1">🤖 KI-Tipp</button>
+            
           </div>
         </div>`).join('')}
       </div>`;
@@ -868,7 +945,12 @@ function renderKI(){
   el.style.cssText='display:flex;flex-direction:column;height:calc(100vh - env(safe-area-inset-top) - 64px);overflow:hidden;padding:0';
   el.innerHTML=`
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <div style="font-size:18px;font-weight:800">🤖 KI-Assistent</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:18px;font-weight:800">🤖 KI-Assistent</div>
+        ${localStorage.getItem('vp_apikey') ? 
+          '<span style="background:#10b98122;color:#10b981;border-radius:10px;padding:2px 10px;font-size:11px;font-weight:700">● Aktiv</span>' : 
+          '<button onclick="document.getElementById(\'firebase-setup\').style.display=\'block\'" style="background:#a855f722;color:#a855f7;border:1px solid #a855f744;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700">⚙️ API-Key eingeben</button>'}
+      </div>
       <div style="color:var(--text3);font-size:12px">Kennt deine Leads & Angebote · Claude AI</div>
     </div>
     <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;padding-bottom:20px;-webkit-overflow-scrolling:touch"></div>
@@ -899,13 +981,19 @@ async function sendKI(){
   const ctx=`Leads (${state.leads.length}): ${state.leads.map(l=>`${l.firma}(${l.status})`).join(', ')}. Angebote (${state.angebote.length}): ${state.angebote.map(a=>`${a.titel}:€${a.wert}(${a.status})`).join(', ')}.`;
   const history=state.chatMessages.slice(-10).map(m=>`${m.role==='user'?'Nutzer':'Assistent'}: ${m.text}`).join('\n');
 
+  const apiKey=localStorage.getItem('vp_apikey')||'';
+  if(!apiKey){
+    state.chatMessages=[...state.chatMessages,{role:'ai',text:'⚠️ Kein API-Key gespeichert.\n\nBitte tippe oben rechts auf 🔥 Firebase und trage deinen Anthropic API-Key ein.\n\nDen Key findest du unter: console.anthropic.com → API Keys'}];
+    renderChatMessages();return;
+  }
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:`Du bist ein erfahrener Vertriebscoach. Kontext: ${ctx}. Antworte auf Deutsch, präzise und praxisorientiert.`,messages:[{role:'user',content:`${history}\nNutzer: ${text}`}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:`Du bist ein erfahrener Vertriebscoach für Lebensmittelverarbeitungsmaschinen (GRAEF, ZERMAT, BASTRA, DÜKER-REX). Kontext: ${ctx}. Antworte auf Deutsch, präzise und praxisorientiert.`,messages:[{role:'user',content:`${history}\nNutzer: ${text}`}]})});
     const data=await res.json();
+    if(data.error){throw new Error(data.error.message);}
     const reply=data.content?.map(b=>b.text||'').join('')||'Fehler beim Laden.';
     state.chatMessages=[...state.chatMessages,{role:'ai',text:reply}];
   }catch(e){
-    state.chatMessages=[...state.chatMessages,{role:'ai',text:'Verbindungsfehler. Bitte Internet prüfen.'}];
+    state.chatMessages=[...state.chatMessages,{role:'ai',text:'❌ Fehler: '+e.message+'\n\nBitte API-Key prüfen.'}];
   }
   renderChatMessages();
 }
@@ -1137,13 +1225,24 @@ function saveVideo(id){
 // FIREBASE CONFIG
 // ═══════════════════════════════════════════════════════
 function saveConfig(){
+  // Save Anthropic API key
+  const anthropicKey=document.getElementById('cfg-anthropic')?.value.trim();
+  if(anthropicKey)localStorage.setItem('vp_apikey',anthropicKey);
+  
+  // Firebase (optional)
   const key=document.getElementById('cfg-key')?.value.trim();
   const proj=document.getElementById('cfg-proj')?.value.trim();
   const app=document.getElementById('cfg-app')?.value.trim();
-  if(!key||!proj||!app){alert('Bitte alle 3 Felder ausfüllen');return;}
-  const cfg={apiKey:key,projectId:proj,appId:app,authDomain:proj+'.firebaseapp.com',storageBucket:proj+'.appspot.com'};
-  localStorage.setItem('vp_cfg',JSON.stringify(cfg));
-  location.reload();
+  
+  if(key&&proj&&app){
+    const cfg={apiKey:key,projectId:proj,appId:app,authDomain:proj+'.firebaseapp.com',storageBucket:proj+'.appspot.com'};
+    localStorage.setItem('vp_cfg',JSON.stringify(cfg));
+    location.reload();
+  } else {
+    // Just save API key and close
+    document.getElementById('firebase-setup').style.display='none';
+    if(anthropicKey) alert('✅ API-Key gespeichert! KI-Assistent ist jetzt aktiv.');
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1192,7 +1291,7 @@ async function uploadPDFAngebot(input) {
     const b64 = await fileToBase64(file);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'x-api-key': localStorage.getItem('vp_apikey')||'', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1500,
@@ -1285,7 +1384,7 @@ async function uploadPDFAnfrage(input) {
     const b64 = await fileToBase64(file);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'x-api-key': localStorage.getItem('vp_apikey')||'', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -2126,6 +2225,28 @@ function angebotZuLead(id) {
   updateBadges();
   alert(`✅ Lead "${a.firma}" angelegt!\n⏰ Erinnerung: ${erinnerDatum}`);
   showTab('leads');
+}
+
+
+function openLeadPDF(leadId) {
+  const l = state.leads.find(x => x.id === leadId);
+  if (!l || !l.pdfData) return;
+  // Open PDF in new tab
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(`
+      <html><head><title>${l.pdfName||'Anhang'}</title></head>
+      <body style="margin:0;background:#000">
+        <embed src="${l.pdfData}" type="application/pdf" width="100%" height="100%" style="position:fixed;inset:0"/>
+      </body></html>`);
+    win.document.close();
+  } else {
+    // Fallback: download
+    const a = document.createElement('a');
+    a.href = l.pdfData;
+    a.download = l.pdfName || 'anhang.pdf';
+    a.click();
+  }
 }
 
 // ═══════════════════════════════════════════════════════
