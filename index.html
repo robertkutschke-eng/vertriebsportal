@@ -820,78 +820,132 @@ function saveAufgabe(id){
 // ═══════════════════════════════════════════════════════
 let _map=null,_markers=[];
 const BRANCHEN=[
-  // Lebensmittel
-  {id:'metzgerei',label:'Metzgerei',color:'#ef4444',emoji:'🥩',osm:'shop=butcher'},
-  {id:'baeckerei',label:'Bäckerei',color:'#f59e0b',emoji:'🥐',osm:'shop=bakery'},
-  {id:'fisch',label:'Fischhandel',color:'#06b6d4',emoji:'🐟',osm:'shop=seafood'},
-  {id:'gastro',label:'Restaurant',color:'#f97316',emoji:'🍽️',osm:'amenity=restaurant'},
-  {id:'cafe',label:'Café/Bistro',color:'#d97706',emoji:'☕',osm:'amenity=cafe'},
-  {id:'supermarkt',label:'Supermarkt',color:'#3b82f6',emoji:'🛒',osm:'shop=supermarket'},
-  {id:'convenience',label:'Kiosk/Convenience',color:'#6366f1',emoji:'🏪',osm:'shop=convenience'},
-  {id:'bio',label:'Bio/Reform',color:'#10b981',emoji:'🥗',osm:'shop=organic'},
-  {id:'catering',label:'Catering',color:'#a855f7',emoji:'🍱',osm:'shop=catering'},
-  {id:'mensa',label:'Kantine/Mensa',color:'#8b5cf6',emoji:'🍜',osm:'amenity=canteen'},
-  // Gesundheit/Pflege (DGVU)
-  {id:'krankenhaus',label:'Krankenhaus',color:'#dc2626',emoji:'🏥',osm:'amenity=hospital'},
-  {id:'pflege',label:'Pflegeheim',color:'#db2777',emoji:'🏠',osm:'amenity=nursing_home'},
-  {id:'altenheim',label:'Seniorenheim',color:'#be185d',emoji:'👴',osm:'amenity=social_facility'},
+  // Lebensmittelverarbeitung (Hauptzielgruppe AS Technical)
+  {id:'metzgerei',label:'Metzgerei / Fleischerei',color:'#ef4444',emoji:'🥩',
+   osm:[['shop','butcher']]},
+  {id:'baeckerei',label:'Bäckerei / Konditorei',color:'#f59e0b',emoji:'🥐',
+   osm:[['shop','bakery'],['shop','pastry']]},
+  {id:'fisch',label:'Fischerei / Fischhändler',color:'#06b6d4',emoji:'🐟',
+   osm:[['shop','seafood'],['shop','fishmonger']]},
+  {id:'gastro',label:'Gastronomie / Restaurant',color:'#f97316',emoji:'🍽️',
+   osm:[['amenity','restaurant'],['amenity','fast_food']]},
+  {id:'cafe',label:'Café / Bistro',color:'#d97706',emoji:'☕',
+   osm:[['amenity','cafe'],['amenity','bar']]},
+  {id:'supermarkt',label:'Supermarkt / LEH',color:'#3b82f6',emoji:'🛒',
+   osm:[['shop','supermarket'],['shop','grocery']]},
+  {id:'bio',label:'Bio / Reform / Deli',color:'#10b981',emoji:'🥗',
+   osm:[['shop','organic'],['shop','greengrocer'],['shop','deli']]},
+  {id:'catering',label:'Catering / Großküche',color:'#a855f7',emoji:'🍱',
+   osm:[['shop','catering'],['amenity','canteen']]},
+  {id:'hotel',label:'Hotel / Hotellerie',color:'#0ea5e9',emoji:'🏨',
+   osm:[['tourism','hotel'],['tourism','hostel']]},
+  // Pflege & Gesundheit (DGVU)
+  {id:'krankenhaus',label:'Krankenhaus / Klinik',color:'#dc2626',emoji:'🏥',
+   osm:[['amenity','hospital'],['amenity','clinic']]},
+  {id:'pflege',label:'Pflegeheim / Seniorenheim',color:'#db2777',emoji:'🏠',
+   osm:[['amenity','nursing_home'],['social_facility','nursing_home']]},
+  {id:'altenheim',label:'Altenheim / Sozialeinr.',color:'#be185d',emoji:'👴',
+   osm:[['amenity','social_facility'],['social_facility','assisted_living']]},
+  {id:'reha',label:'Reha / Kur / Sanatorium',color:'#7c3aed',emoji:'🏋️',
+   osm:[['amenity','rehabilitation'],['healthcare','rehabilitation']]},
 ];
 
-// OSM queries for each type
+// Build Overpass query for all or selected branches
 function getBranchenOSMQuery(brancheIds, radius, lat, lng) {
-  const all = brancheIds.length === 0 ? BRANCHEN : BRANCHEN.filter(b => brancheIds.has(b.id));
-  const parts = all.map(b => {
-    const [k,v] = b.osm.split('=');
-    return `node["${k}"="${v}"](around:${radius},${lat},${lng});way["${k}"="${v}"](around:${radius},${lat},${lng});`;
+  const aktiv = brancheIds.size === 0 ? BRANCHEN : BRANCHEN.filter(b => brancheIds.has(b.id));
+  const parts = [];
+  aktiv.forEach(b => {
+    b.osm.forEach(([k,v]) => {
+      parts.push(`node["${k}"="${v}"](around:${radius},${lat},${lng});`);
+      parts.push(`way["${k}"="${v}"](around:${radius},${lat},${lng});`);
+    });
   });
-  return `[out:json][timeout:25];(${parts.join('')});out center;`;
+  return `[out:json][timeout:30];(${parts.join('')});out center;`;
 }
 
 function brancheForResult(tags) {
-  if (tags.shop==='butcher') return BRANCHEN.find(b=>b.id==='metzgerei');
-  if (tags.shop==='bakery') return BRANCHEN.find(b=>b.id==='baeckerei');
-  if (tags.shop==='seafood'||tags.shop==='fish') return BRANCHEN.find(b=>b.id==='fisch');
-  if (tags.amenity==='restaurant'||tags.amenity==='fast_food') return BRANCHEN.find(b=>b.id==='gastro');
-  if (tags.amenity==='cafe') return BRANCHEN.find(b=>b.id==='cafe');
-  if (tags.shop==='supermarket') return BRANCHEN.find(b=>b.id==='supermarkt');
-  if (tags.shop==='convenience') return BRANCHEN.find(b=>b.id==='convenience');
-  if (tags.shop==='organic'||tags.shop==='greengrocer') return BRANCHEN.find(b=>b.id==='bio');
-  if (tags.shop==='catering') return BRANCHEN.find(b=>b.id==='catering');
-  if (tags.amenity==='canteen') return BRANCHEN.find(b=>b.id==='mensa');
-  if (tags.amenity==='hospital') return BRANCHEN.find(b=>b.id==='krankenhaus');
-  if (tags.amenity==='nursing_home') return BRANCHEN.find(b=>b.id==='pflege');
-  if (tags.amenity==='social_facility') return BRANCHEN.find(b=>b.id==='altenheim');
-  return BRANCHEN.find(b=>b.id==='metzgerei'); // fallback
+  const s = tags.shop || '';
+  const a = tags.amenity || '';
+  const sf = tags.social_facility || '';
+  const t = tags.tourism || '';
+  const h = tags.healthcare || '';
+  if (s==='butcher') return BRANCHEN.find(b=>b.id==='metzgerei');
+  if (s==='bakery'||s==='pastry') return BRANCHEN.find(b=>b.id==='baeckerei');
+  if (s==='seafood'||s==='fishmonger'||s==='fish') return BRANCHEN.find(b=>b.id==='fisch');
+  if (a==='restaurant'||a==='fast_food') return BRANCHEN.find(b=>b.id==='gastro');
+  if (a==='cafe'||a==='bar') return BRANCHEN.find(b=>b.id==='cafe');
+  if (s==='supermarket'||s==='grocery') return BRANCHEN.find(b=>b.id==='supermarkt');
+  if (s==='organic'||s==='greengrocer'||s==='deli') return BRANCHEN.find(b=>b.id==='bio');
+  if (s==='catering'||a==='canteen') return BRANCHEN.find(b=>b.id==='catering');
+  if (t==='hotel'||t==='hostel') return BRANCHEN.find(b=>b.id==='hotel');
+  if (a==='hospital'||a==='clinic') return BRANCHEN.find(b=>b.id==='krankenhaus');
+  if (a==='nursing_home'||sf==='nursing_home') return BRANCHEN.find(b=>b.id==='pflege');
+  if (a==='social_facility'||sf==='assisted_living') return BRANCHEN.find(b=>b.id==='altenheim');
+  if (a==='rehabilitation'||h==='rehabilitation') return BRANCHEN.find(b=>b.id==='reha');
+  return BRANCHEN[0];
 }
 
 function renderKarte(){
   document.getElementById('screen-karte').innerHTML=`
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="getMyLocation()">📍 Mein Standort</button>
-      <select id="map-radius" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px">
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary btn-sm" onclick="getMyLocation()" style="flex-shrink:0">📍 Standort</button>
+      <select id="map-radius" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px;flex-shrink:0">
         <option value="2000">2 km</option>
         <option value="5000" selected>5 km</option>
         <option value="10000">10 km</option>
         <option value="25000">25 km</option>
         <option value="50000">50 km</option>
       </select>
-      <button class="btn btn-secondary btn-sm" onclick="showLeadsOnMap()">👥 Leads</button>
+      <button class="btn btn-secondary btn-sm" onclick="showLeadsOnMap()" style="flex-shrink:0">👥 Leads</button>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="branche-filter">
-      ${BRANCHEN.map(b=>`<button onclick="toggleBrancheFilter('${b.id}',this)" 
-        style="background:${b.color}22;color:${b.color};border:1px solid ${b.color}44;border-radius:10px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">
-        ${b.emoji} ${b.label}</button>`).join('')}
+
+    <!-- Schnellauswahl Gruppen -->
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <button onclick="selectBranchenGruppe('lebensmittel')" class="btn btn-sm btn-secondary" style="flex:1;font-size:11px">🥩 Lebensmittel</button>
+      <button onclick="selectBranchenGruppe('pflege')" class="btn btn-sm btn-secondary" style="flex:1;font-size:11px;background:#dc262622;color:#dc2626;border-color:#dc262644">🏥 Pflege/DGVU</button>
+      <button onclick="selectBranchenGruppe('alle')" class="btn btn-sm btn-secondary" style="flex:1;font-size:11px">🔍 Alle</button>
     </div>
-    <button class="btn btn-primary btn-full btn-sm" onclick="searchNearby()" style="margin-bottom:10px">🔍 Alle Betriebe in der Nähe suchen</button>
-    <div id="map" style="height:40vh;border-radius:12px;overflow:hidden;margin-bottom:8px"></div>
-    <div id="map-results"></div>`;
+
+    <!-- Einzelne Filter -->
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="branche-filter">
+      ${BRANCHEN.map(b=>`<button id="bf-${b.id}" onclick="toggleBrancheFilter('${b.id}',this)" 
+        style="background:${b.color}22;color:${b.color};border:1px solid ${b.color}44;border-radius:10px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;opacity:.5">
+        ${b.emoji} ${b.label.split('/')[0].trim()}</button>`).join('')}
+    </div>
+
+    <button class="btn btn-primary btn-full btn-sm" onclick="searchNearby()" style="margin-bottom:8px;padding:12px">
+      🔍 Betriebe in gewähltem Radius suchen
+    </button>
+    <div id="map" style="height:35vh;border-radius:12px;overflow:hidden;margin-bottom:8px"></div>
+    <div id="map-results" style="padding-bottom:80px"></div>`;
+  
+  // Init active filter set
+  _aktiveBranchen = new Set(BRANCHEN.map(b=>b.id));
+  document.querySelectorAll('#branche-filter button').forEach(b=>b.style.opacity='1');
 }
 
-let _aktiveBranchen = new Set();
+function selectBranchenGruppe(gruppe) {
+  const lebensmittel = ['metzgerei','baeckerei','fisch','gastro','cafe','supermarkt','bio','catering','hotel'];
+  const pflege = ['krankenhaus','pflege','altenheim','reha'];
+  
+  let ids;
+  if (gruppe==='lebensmittel') ids = lebensmittel;
+  else if (gruppe==='pflege') ids = pflege;
+  else ids = BRANCHEN.map(b=>b.id);
+  
+  _aktiveBranchen = new Set(ids);
+  document.querySelectorAll('#branche-filter button').forEach(btn => {
+    const id = btn.id.replace('bf-','');
+    btn.style.opacity = _aktiveBranchen.has(id) ? '1' : '0.3';
+  });
+  renderMapResultsList();
+}
+
+let _aktiveBranchen = new Set(BRANCHEN.map ? [] : []);
 function toggleBrancheFilter(id, btn) {
   if (_aktiveBranchen.has(id)) {
     _aktiveBranchen.delete(id);
-    btn.style.opacity = '0.4';
+    btn.style.opacity = '0.3';
   } else {
     _aktiveBranchen.add(id);
     btn.style.opacity = '1';
