@@ -830,431 +830,420 @@ function saveAufgabe(id){
 }
 
 // ═══════════════════════════════════════════════════════
-// KARTE – Kaltakquise
+// KARTE – Kaltakquise mit KI-gestützter Suche
 // ═══════════════════════════════════════════════════════
-let _map=null,_markers=[];
-const BRANCHEN=[
-  // Lebensmittelverarbeitung (Hauptzielgruppe AS Technical)
-  {id:'metzgerei',label:'Metzgerei / Fleischerei',color:'#ef4444',emoji:'🥩',
-   osm:[['shop','butcher']]},
-  {id:'baeckerei',label:'Bäckerei / Konditorei',color:'#f59e0b',emoji:'🥐',
-   osm:[['shop','bakery'],['shop','pastry']]},
-  {id:'fisch',label:'Fischerei / Fischhändler',color:'#06b6d4',emoji:'🐟',
-   osm:[['shop','seafood'],['shop','fishmonger']]},
-  {id:'gastro',label:'Gastronomie / Restaurant',color:'#f97316',emoji:'🍽️',
-   osm:[['amenity','restaurant'],['amenity','fast_food']]},
-  {id:'cafe',label:'Café / Bistro',color:'#d97706',emoji:'☕',
-   osm:[['amenity','cafe'],['amenity','bar']]},
-  {id:'supermarkt',label:'Supermarkt / LEH',color:'#3b82f6',emoji:'🛒',
-   osm:[['shop','supermarket'],['shop','grocery']]},
-  {id:'bio',label:'Bio / Reform / Deli',color:'#10b981',emoji:'🥗',
-   osm:[['shop','organic'],['shop','greengrocer'],['shop','deli']]},
-  {id:'catering',label:'Catering / Großküche',color:'#a855f7',emoji:'🍱',
-   osm:[['shop','catering'],['amenity','canteen']]},
-  {id:'hotel',label:'Hotel / Hotellerie',color:'#0ea5e9',emoji:'🏨',
-   osm:[['tourism','hotel'],['tourism','hostel']]},
-  // Pflege & Gesundheit (DGVU)
-  {id:'krankenhaus',label:'Krankenhaus / Klinik',color:'#dc2626',emoji:'🏥',
-   osm:[['amenity','hospital'],['amenity','clinic']]},
-  {id:'pflege',label:'Pflegeheim / Seniorenheim',color:'#db2777',emoji:'🏠',
-   osm:[['amenity','nursing_home'],['social_facility','nursing_home']]},
-  {id:'altenheim',label:'Altenheim / Sozialeinr.',color:'#be185d',emoji:'👴',
-   osm:[['amenity','social_facility'],['social_facility','assisted_living']]},
-  {id:'reha',label:'Reha / Kur / Sanatorium',color:'#7c3aed',emoji:'🏋️',
-   osm:[['amenity','rehabilitation'],['healthcare','rehabilitation']]},
+
+let _map = null, _markers = [];
+
+const SUCHKATEGORIEN = [
+  {id:'metzgerei', label:'Metzgerei / Fleischerei', emoji:'🥩', color:'#ef4444',
+   begriffe:['Metzgerei','Fleischerei','Schlachterei','Fleischer','Metzger','Wursterei']},
+  {id:'baeckerei', label:'Bäckerei / Konditorei', emoji:'🥐', color:'#f59e0b',
+   begriffe:['Bäckerei','Konditorei','Bäcker','Café','Backstube']},
+  {id:'fisch', label:'Fischerei / Fischhandel', emoji:'🐟', color:'#06b6d4',
+   begriffe:['Fischerei','Fischhandel','Fischladen','Fischmarkt','Räucherei']},
+  {id:'gastro', label:'Restaurant / Gastronomie', emoji:'🍽️', color:'#f97316',
+   begriffe:['Restaurant','Gaststätte','Gasthof','Wirtshaus','Bistro','Imbiss','Pizzeria','Steakhouse']},
+  {id:'hotel', label:'Hotel / Catering', emoji:'🏨', color:'#0ea5e9',
+   begriffe:['Hotel','Catering','Eventcatering','Partyservice']},
+  {id:'krankenhaus', label:'Krankenhaus / Klinik', emoji:'🏥', color:'#dc2626',
+   begriffe:['Krankenhaus','Klinikum','Klinik','Universitätsklinik','Kreiskrankenhaus','Fachklinik','Rehabilitationsklinik']},
+  {id:'pflege', label:'Pflegeheim / Seniorenheim', emoji:'🏠', color:'#db2777',
+   begriffe:['Pflegeheim','Seniorenheim','Altenheim','Seniorenpflegeheim','AWO','Caritas','Diakonie','Vitanas','Korian','Azurit']},
+  {id:'reha', label:'Reha / Kur / Sanatorium', emoji:'🏋️', color:'#7c3aed',
+   begriffe:['Rehabilitationszentrum','Reha-Klinik','Sanatorium','Kurhotel','Therme']},
 ];
 
-// Build Overpass query for all or selected branches
-function getBranchenOSMQuery(brancheIds, radius, lat, lng) {
-  const aktiv = brancheIds.size === 0 ? BRANCHEN : BRANCHEN.filter(b => brancheIds.has(b.id));
-  const parts = [];
-  aktiv.forEach(b => {
-    b.osm.forEach(([k,v]) => {
-      parts.push(`node["${k}"="${v}"](around:${radius},${lat},${lng});`);
-      parts.push(`way["${k}"="${v}"](around:${radius},${lat},${lng});`);
-    });
-  });
-  // Extra keyword search for German business names
-  const keywords=['Metzgerei','Fleischerei','Bäckerei','Konditorei','Fischerei','Fischladen','Pflegeheim','Altenheim','Seniorenheim','Krankenhaus','Klinik','Gasthof','Gaststätte','Imbiss'];
-  keywords.forEach(kw=>{
-    parts.push(`node["name"~"${kw}",i](around:${radius},${lat},${lng});`);
-    parts.push(`way["name"~"${kw}",i](around:${radius},${lat},${lng});`);
-  });
-  return `[out:json][timeout:35];(${parts.join('')});out center tags;`;
+function renderKarte() {
+  document.getElementById('screen-karte').innerHTML = `
+    <div style="padding:0">
+      <!-- Einfache Suche oben -->
+      <div style="background:var(--card);border-bottom:1px solid var(--border);padding:12px 16px">
+        <div style="font-size:16px;font-weight:800;margin-bottom:10px">🗺️ Betriebe finden</div>
+
+        <!-- Radius + Suche -->
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <select id="map-radius" style="background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;flex:1">
+            <option value="2">2 km</option>
+            <option value="5" selected>5 km</option>
+            <option value="10">10 km</option>
+            <option value="25">25 km</option>
+            <option value="50">50 km</option>
+          </select>
+          <button class="btn btn-primary" onclick="startSuche()" style="flex:2;padding:10px">
+            📍 Betriebe in meiner Nähe
+          </button>
+        </div>
+
+        <!-- Kategorie-Schnellwahl -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="kat-btns">
+          ${SUCHKATEGORIEN.map(k => `
+            <button id="kat-${k.id}" onclick="toggleKat('${k.id}')"
+              style="background:${k.color}22;color:${k.color};border:1px solid ${k.color}44;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;text-align:left;opacity:.5">
+              ${k.emoji} ${k.label.split('/')[0].trim()}
+            </button>`).join('')}
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button onclick="alleKatAn()" class="btn btn-secondary btn-sm" style="flex:1">✓ Alle</button>
+          <button onclick="alleKatAus()" class="btn btn-secondary btn-sm" style="flex:1">✗ Keine</button>
+          <button onclick="nurLebensmittel()" class="btn btn-secondary btn-sm" style="flex:1;font-size:11px">🥩 Lebensmittel</button>
+          <button onclick="nurPflege()" class="btn btn-secondary btn-sm" style="flex:1;color:#dc2626;border-color:#dc262644;font-size:11px">🏥 Pflege</button>
+        </div>
+      </div>
+
+      <!-- Karte -->
+      <div id="map" style="height:35vh"></div>
+
+      <!-- Ergebnisse -->
+      <div id="map-results" style="padding:0 0 80px"></div>
+    </div>`;
+
+  // Alle aktivieren
+  _aktiveKat = new Set(SUCHKATEGORIEN.map(k => k.id));
+  document.querySelectorAll('[id^="kat-"]').forEach(b => b.style.opacity = '1');
+
+  setTimeout(initMap, 100);
 }
 
-function brancheForResult(tags) {
-  const s = tags.shop || '';
-  const a = tags.amenity || '';
-  const sf = tags.social_facility || '';
-  const t = tags.tourism || '';
-  const h = tags.healthcare || '';
-  if (s==='butcher') return BRANCHEN.find(b=>b.id==='metzgerei');
-  if (s==='bakery'||s==='pastry') return BRANCHEN.find(b=>b.id==='baeckerei');
-  if (s==='seafood'||s==='fishmonger'||s==='fish') return BRANCHEN.find(b=>b.id==='fisch');
-  if (a==='restaurant'||a==='fast_food') return BRANCHEN.find(b=>b.id==='gastro');
-  if (a==='cafe'||a==='bar') return BRANCHEN.find(b=>b.id==='cafe');
-  if (s==='supermarket'||s==='grocery') return BRANCHEN.find(b=>b.id==='supermarkt');
-  if (s==='organic'||s==='greengrocer'||s==='deli') return BRANCHEN.find(b=>b.id==='bio');
-  if (s==='catering'||a==='canteen') return BRANCHEN.find(b=>b.id==='catering');
-  if (t==='hotel'||t==='hostel') return BRANCHEN.find(b=>b.id==='hotel');
-  if (a==='hospital'||a==='clinic') return BRANCHEN.find(b=>b.id==='krankenhaus');
-  if (a==='nursing_home'||sf==='nursing_home') return BRANCHEN.find(b=>b.id==='pflege');
-  if (a==='social_facility'||sf==='assisted_living') return BRANCHEN.find(b=>b.id==='altenheim');
-  if (a==='rehabilitation'||h==='rehabilitation') return BRANCHEN.find(b=>b.id==='reha');
-  return BRANCHEN[0];
-}
+let _aktiveKat = new Set(SUCHKATEGORIEN.map(k => k.id));
 
-function renderKarte(){
-  document.getElementById('screen-karte').innerHTML=`
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
-      <button class="btn btn-primary btn-sm" onclick="getMyLocation()" style="flex-shrink:0">📍 Standort</button>
-      <select id="map-radius" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px;flex-shrink:0">
-        <option value="2000">2 km</option>
-        <option value="5000" selected>5 km</option>
-        <option value="10000">10 km</option>
-        <option value="25000">25 km</option>
-        <option value="50000">50 km</option>
-      </select>
-      <button class="btn btn-secondary btn-sm" onclick="showLeadsOnMap()" style="flex-shrink:0">👥 Leads</button>
-    </div>
-
-    <!-- Schnellauswahl Gruppen -->
-    <div style="display:flex;gap:6px;margin-bottom:6px">
-      <button onclick="selectBranchenGruppe('lebensmittel')" class="btn btn-sm btn-secondary" style="flex:1;font-size:11px">🥩 Lebensmittel</button>
-      <button onclick="selectBranchenGruppe('pflege')" class="btn btn-sm btn-secondary" style="flex:1;font-size:11px;background:#dc262622;color:#dc2626;border-color:#dc262644">🏥 Pflege/DGVU</button>
-      <button onclick="selectBranchenGruppe('alle')" class="btn btn-sm btn-secondary" style="flex:1;font-size:11px">🔍 Alle</button>
-    </div>
-
-    <!-- Einzelne Filter -->
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="branche-filter">
-      ${BRANCHEN.map(b=>`<button id="bf-${b.id}" onclick="toggleBrancheFilter('${b.id}',this)" 
-        style="background:${b.color}22;color:${b.color};border:1px solid ${b.color}44;border-radius:10px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;opacity:.5">
-        ${b.emoji} ${b.label.split('/')[0].trim()}</button>`).join('')}
-    </div>
-
-    <button class="btn btn-primary btn-full btn-sm" onclick="searchNearby()" style="margin-bottom:8px;padding:12px">
-      🔍 Betriebe in gewähltem Radius suchen
-    </button>
-    <div id="map" style="height:35vh;border-radius:12px;overflow:hidden;margin-bottom:8px"></div>
-    <div id="map-results" style="padding-bottom:80px"></div>`;
-  
-  // Init active filter set
-  _aktiveBranchen = new Set(BRANCHEN.map(b=>b.id));
-  document.querySelectorAll('#branche-filter button').forEach(b=>b.style.opacity='1');
-}
-
-function selectBranchenGruppe(gruppe) {
-  const lebensmittel = ['metzgerei','baeckerei','fisch','gastro','cafe','supermarkt','bio','catering','hotel'];
-  const pflege = ['krankenhaus','pflege','altenheim','reha'];
-  
-  let ids;
-  if (gruppe==='lebensmittel') ids = lebensmittel;
-  else if (gruppe==='pflege') ids = pflege;
-  else ids = BRANCHEN.map(b=>b.id);
-  
-  _aktiveBranchen = new Set(ids);
-  document.querySelectorAll('#branche-filter button').forEach(btn => {
-    const id = btn.id.replace('bf-','');
-    btn.style.opacity = _aktiveBranchen.has(id) ? '1' : '0.3';
-  });
-  renderMapResultsList();
-}
-
-let _aktiveBranchen = new Set(BRANCHEN.map ? [] : []);
-function toggleBrancheFilter(id, btn) {
-  if (_aktiveBranchen.has(id)) {
-    _aktiveBranchen.delete(id);
-    btn.style.opacity = '0.3';
+function toggleKat(id) {
+  if (_aktiveKat.has(id)) {
+    _aktiveKat.delete(id);
+    document.getElementById('kat-' + id).style.opacity = '.4';
   } else {
-    _aktiveBranchen.add(id);
-    btn.style.opacity = '1';
+    _aktiveKat.add(id);
+    document.getElementById('kat-' + id).style.opacity = '1';
   }
-  renderMapResultsList();
 }
 
-function initMap(){
-  if(_map){_map.invalidateSize();return;}
-  const el=document.getElementById('map');
-  if(!el||el.offsetHeight===0){setTimeout(initMap,200);return;}
-  _map=L.map('map',{zoomControl:true,attributionControl:false}).setView([51.1657,10.4515],6);
-  // Try primary tile, fallback to secondary
-  const t1=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,crossOrigin:true});
-  const t2=L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png',{maxZoom:18});
-  t1.on('tileerror',()=>{_map.removeLayer(t1);t2.addTo(_map);});
-  t1.addTo(_map);
+function alleKatAn() {
+  _aktiveKat = new Set(SUCHKATEGORIEN.map(k => k.id));
+  document.querySelectorAll('[id^="kat-"]').forEach(b => b.style.opacity = '1');
+}
+function alleKatAus() {
+  _aktiveKat = new Set();
+  document.querySelectorAll('[id^="kat-"]').forEach(b => b.style.opacity = '.4');
+}
+function nurLebensmittel() {
+  _aktiveKat = new Set(['metzgerei','baeckerei','fisch','gastro','hotel']);
+  SUCHKATEGORIEN.forEach(k => {
+    document.getElementById('kat-'+k.id).style.opacity = _aktiveKat.has(k.id) ? '1' : '.4';
+  });
+}
+function nurPflege() {
+  _aktiveKat = new Set(['krankenhaus','pflege','reha']);
+  SUCHKATEGORIEN.forEach(k => {
+    document.getElementById('kat-'+k.id).style.opacity = _aktiveKat.has(k.id) ? '1' : '.4';
+  });
+}
+
+function initMap() {
+  if (_map) { _map.invalidateSize(); return; }
+  const el = document.getElementById('map');
+  if (!el || el.offsetHeight === 0) { setTimeout(initMap, 200); return; }
+  _map = L.map('map', {zoomControl:true,attributionControl:false}).setView([51.1657, 10.4515], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(_map);
   L.control.attribution({prefix:'© OpenStreetMap'}).addTo(_map);
   showLeadsOnMap();
 }
 
-function getMyLocation(){
-  if(!navigator.geolocation){alert('GPS nicht verfügbar');return;}
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const {latitude:lat,longitude:lng}=pos.coords;
-    _map.setView([lat,lng],14);
-    L.marker([lat,lng],{icon:L.divIcon({html:'<div style="background:#3b82f6;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>',iconSize:[20,20],iconAnchor:[10,10]})}).addTo(_map).bindPopup('📍 Mein Standort');
-    // Search nearby
-    document.getElementById('map-results').innerHTML=`<div style="color:var(--text3);font-size:13px;text-align:center;padding:10px">Standort gefunden! Tippe "Betriebe suchen" um Kunden in der Nähe zu finden.</div>`;
-  },()=>alert('Standort konnte nicht ermittelt werden.\nBitte GPS-Berechtigung erlauben.'));
+function startSuche() {
+  if (!navigator.geolocation) { alert('GPS nicht verfügbar'); return; }
+  const res = document.getElementById('map-results');
+  res.innerHTML = `<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto 10px"></div><div style="color:var(--blue)">GPS wird ermittelt…</div></div>`;
+  navigator.geolocation.getCurrentPosition(
+    pos => sucheStarten(pos.coords.latitude, pos.coords.longitude),
+    () => alert('GPS-Berechtigung benötigt! Bitte in Browser-Einstellungen erlauben.')
+  );
 }
 
-let _allMapResults = [];
+async function sucheStarten(lat, lng) {
+  const radius = Number(document.getElementById('map-radius')?.value || 5);
+  const res = document.getElementById('map-results');
 
-function searchOverpass(lat, lng, radius) {
-  radius = radius || 5000;
-  const query = getBranchenOSMQuery(new Set(), radius, lat, lng);
-  document.getElementById('map-results').innerHTML = `<div style="text-align:center;padding:16px;color:var(--blue)"><div class="spinner" style="margin:0 auto 8px"></div>Suche ${Math.round(radius/1000)} km Umkreis…</div>`;
+  if (!_map) initMap();
+  _map.setView([lat, lng], radius <= 5 ? 13 : radius <= 10 ? 12 : 10);
 
-  fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query))
-    .then(r => r.json())
-    .then(data => {
-      _markers.forEach(m => { if(m._isSearch) _map.removeLayer(m); });
-      _markers = _markers.filter(m => !m._isSearch);
-      const elements = data.elements || [];
-      _allMapResults = [];
+  // My location marker
+  L.marker([lat, lng], {icon: L.divIcon({
+    html: '<div style="background:#3b82f6;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>',
+    iconSize:[16,16], iconAnchor:[8,8]
+  })}).addTo(_map).bindPopup('📍 Mein Standort');
 
-      elements.forEach(el => {
-        const lat2 = el.lat || el.center?.lat;
-        const lon2 = el.lon || el.center?.lon;
-        if (!lat2 || !lon2) return;
-        const tags = el.tags || {};
-        const name = tags.name || tags['name:de'] || 'Unbekannter Betrieb';
-        const branche = brancheForResult(tags);
-        const adresse = [tags['addr:street'], tags['addr:housenumber'], tags['addr:city']].filter(Boolean).join(' ');
-        const telefon = tags.phone || tags['contact:phone'] || '';
-        const website = tags.website || tags['contact:website'] || '';
-        const isLead = (state.leads||[]).some(l => l.firma === name);
+  const aktiveKats = SUCHKATEGORIEN.filter(k => _aktiveKat.has(k.id));
+  if (!aktiveKats.length) { res.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">Bitte mindestens eine Kategorie auswählen</div>'; return; }
 
-        const icon = L.divIcon({
-          html: `<div style="background:${isLead?'#10b981':branche.color};width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 10px rgba(0,0,0,.5)">${isLead?'✓':branche.emoji}</div>`,
-          iconSize:[30,30],iconAnchor:[15,15]
-        });
-        const m = L.marker([lat2, lon2], {icon}).addTo(_map);
-        m._isSearch = true;
-        m.bindPopup(`<div style="min-width:200px;font-family:system-ui">
-          <div style="font-weight:700;font-size:15px;margin-bottom:4px">${name}</div>
-          <div style="background:${branche.color}22;color:${branche.color};display:inline-block;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;margin-bottom:6px">${branche.emoji} ${branche.label}</div>
-          ${adresse?`<div style="font-size:12px;color:#666;margin-bottom:4px">📍 ${adresse}</div>`:''}
-          ${telefon?`<div style="font-size:12px;margin-bottom:6px">📞 <a href="tel:${telefon}" style="color:#1d4ed8">${telefon}</a></div>`:''}
-          ${isLead?'<div style="color:#10b981;font-size:12px;font-weight:700;margin-bottom:6px">✓ Bereits als Lead</div>':''}
-          <div style="display:flex;gap:6px;margin-top:8px">
-            ${!isLead?`<button onclick="addLeadFromMap('${name.replace(/'/g,"\'")}','${branche.label}',${lat2},${lon2},'${adresse.replace(/'/g,"\'")}','${telefon}')" style="flex:1;background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:6px;font-size:11px;font-weight:700;cursor:pointer">+ Lead</button>`:''}
-            ${telefon?`<a href="tel:${telefon}" style="flex:1;background:#128C7E;color:#fff;border-radius:6px;padding:6px;font-size:11px;font-weight:700;text-align:center;text-decoration:none">📞</a>`:''}
-          </div></div>`);
-        _markers.push(m);
-        _allMapResults.push({name,branche,adresse,telefon,website,lat:lat2,lng:lon2,isLead});
+  res.innerHTML = `<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto 10px"></div><div style="color:var(--blue)">Suche ${aktiveKats.length} Kategorien im Umkreis von ${radius} km…</div><div style="color:var(--text3);font-size:12px;margin-top:6px">Nutzt OpenStreetMap + Namenssuche</div></div>`;
+
+  // Clear old markers
+  _markers.forEach(m => { if (m._isSearch) _map.removeLayer(m); });
+  _markers = _markers.filter(m => !m._isSearch);
+
+  // Build comprehensive Overpass query
+  const r = radius * 1000;
+  const parts = [];
+
+  aktiveKats.forEach(kat => {
+    // OSM tags
+    if (kat.id === 'metzgerei') {
+      ['butcher','deli'].forEach(v => {
+        parts.push(`node["shop"="${v}"](around:${r},${lat},${lng});`);
+        parts.push(`way["shop"="${v}"](around:${r},${lat},${lng});`);
       });
-      renderMapResultsList();
-    })
-    .catch(err => {
-      document.getElementById('map-results').innerHTML = `<div style="color:var(--red);font-size:13px;text-align:center;padding:12px">❌ Suche fehlgeschlagen. Bitte Internet prüfen.</div>`;
+    } else if (kat.id === 'baeckerei') {
+      ['bakery','pastry','confectionery'].forEach(v => {
+        parts.push(`node["shop"="${v}"](around:${r},${lat},${lng});`);
+        parts.push(`way["shop"="${v}"](around:${r},${lat},${lng});`);
+      });
+    } else if (kat.id === 'fisch') {
+      ['seafood','fishmonger'].forEach(v => {
+        parts.push(`node["shop"="${v}"](around:${r},${lat},${lng});`);
+      });
+    } else if (kat.id === 'gastro') {
+      ['restaurant','fast_food','food_court'].forEach(v => {
+        parts.push(`node["amenity"="${v}"](around:${r},${lat},${lng});`);
+        parts.push(`way["amenity"="${v}"](around:${r},${lat},${lng});`);
+      });
+    } else if (kat.id === 'hotel') {
+      parts.push(`node["tourism"="hotel"](around:${r},${lat},${lng});`);
+      parts.push(`way["tourism"="hotel"](around:${r},${lat},${lng});`);
+      parts.push(`node["amenity"="canteen"](around:${r},${lat},${lng});`);
+    } else if (kat.id === 'krankenhaus') {
+      ['hospital','clinic'].forEach(v => {
+        parts.push(`node["amenity"="${v}"](around:${r},${lat},${lng});`);
+        parts.push(`way["amenity"="${v}"](around:${r},${lat},${lng});`);
+      });
+    } else if (kat.id === 'pflege') {
+      ['nursing_home','retirement_home','social_facility'].forEach(v => {
+        parts.push(`node["amenity"="${v}"](around:${r},${lat},${lng});`);
+        parts.push(`way["amenity"="${v}"](around:${r},${lat},${lng});`);
+      });
+    } else if (kat.id === 'reha') {
+      parts.push(`node["amenity"="rehabilitation"](around:${r},${lat},${lng});`);
+      parts.push(`way["healthcare"="rehabilitation"](around:${r},${lat},${lng});`);
+    }
+
+    // Name keyword search for ALL categories - this catches many more results
+    kat.begriffe.forEach(beg => {
+      parts.push(`node["name"~"${beg}",i](around:${r},${lat},${lng});`);
+      parts.push(`way["name"~"${beg}",i](around:${r},${lat},${lng});`);
     });
+  });
+
+  const query = `[out:json][timeout:40];(${parts.join('')});out center tags;`;
+
+  try {
+    const resp = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query));
+    const data = await resp.json();
+    const elements = data.elements || [];
+
+    // Deduplicate by name+position
+    const seen = new Set();
+    const results = [];
+    elements.forEach(el => {
+      const lat2 = el.lat || el.center?.lat;
+      const lon2 = el.lon || el.center?.lon;
+      if (!lat2 || !lon2) return;
+      const tags = el.tags || {};
+      const name = tags.name || tags['name:de'] || '';
+      if (!name || name.length < 2) return;
+      const key = name.toLowerCase().slice(0,20) + Math.round(lat2*100) + Math.round(lon2*100);
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const kat = bestimmeKategorie(name, tags);
+      if (!kat || !_aktiveKat.has(kat.id)) return;
+
+      const adresse = [tags['addr:street'], tags['addr:housenumber'], tags['addr:postcode'], tags['addr:city']].filter(Boolean).join(' ');
+      const telefon = tags.phone || tags['contact:phone'] || '';
+      const website = tags.website || tags['contact:website'] || '';
+      const isLead = (state.leads||[]).some(l => l.firma === name);
+
+      // Add marker
+      const icon = L.divIcon({
+        html: `<div style="background:${isLead?'#10b981':kat.color};width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.4)">${isLead?'✓':kat.emoji}</div>`,
+        iconSize:[28,28], iconAnchor:[14,14]
+      });
+      const m = L.marker([lat2, lon2], {icon}).addTo(_map);
+      m._isSearch = true;
+      m.bindPopup(`<div style="min-width:200px;font-family:system-ui">
+        <b style="font-size:14px">${name}</b><br/>
+        <span style="background:${kat.color}22;color:${kat.color};border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700">${kat.emoji} ${kat.label}</span>
+        ${adresse?`<div style="font-size:12px;color:#666;margin-top:4px">📍 ${adresse}</div>`:''}
+        ${telefon?`<div style="font-size:12px;margin-top:4px">📞 <a href="tel:${telefon}" style="color:#1d4ed8">${telefon}</a></div>`:''}
+        <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
+          <a href="https://www.google.de/search?q=${encodeURIComponent(name+' '+adresse)}" target="_blank" style="background:#4285f422;color:#4285f4;border-radius:5px;padding:4px 8px;font-size:11px;text-decoration:none;font-weight:700">🔍 Google</a>
+          ${telefon?`<a href="tel:${telefon}" style="background:#10b98122;color:#10b981;border-radius:5px;padding:4px 8px;font-size:11px;text-decoration:none;font-weight:700">📞 Anrufen</a>`:''}
+          ${!isLead?`<button onclick="addLeadFromMap('${name.replace(/'/g,"\'")}','${kat.label}',${lat2},${lon2},'${adresse.replace(/'/g,"\'")}','${telefon}')" style="background:#1d4ed8;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:700">+ Lead</button>`:'<span style="color:#10b981;font-size:11px;font-weight:700">✓ Lead</span>'}
+        </div>
+      </div>`);
+      _markers.push(m);
+      results.push({name, kat, adresse, telefon, website, lat:lat2, lng:lon2, isLead});
+    });
+
+    renderErgebnisListe(results, radius);
+
+  } catch(err) {
+    res.innerHTML = `<div style="color:var(--red);text-align:center;padding:20px">❌ Suche fehlgeschlagen.<br/><small>${err.message}</small><br/><button onclick="startSuche()" class="btn btn-secondary btn-sm" style="margin-top:10px">Nochmal versuchen</button></div>`;
+  }
 }
 
-function renderMapResultsList() {
-  const container = document.getElementById('map-results');
-  if (!container || !_allMapResults.length) return;
-  const filtered = _aktiveBranchen.size>0 ? _allMapResults.filter(r=>_aktiveBranchen.has(r.branche.id)) : _allMapResults;
-  const grouped = {};
-  filtered.forEach(r => {
-    if (!grouped[r.branche.id]) grouped[r.branche.id]={branche:r.branche,items:[]};
-    grouped[r.branche.id].items.push(r);
+function bestimmeKategorie(name, tags) {
+  const n = name.toLowerCase();
+  const shop = tags.shop || '';
+  const amenity = tags.amenity || '';
+  const tourism = tags.tourism || '';
+  const healthcare = tags.healthcare || '';
+
+  // By tags first
+  if (shop==='butcher'||shop==='deli') return SUCHKATEGORIEN.find(k=>k.id==='metzgerei');
+  if (shop==='bakery'||shop==='pastry') return SUCHKATEGORIEN.find(k=>k.id==='baeckerei');
+  if (shop==='seafood'||shop==='fishmonger') return SUCHKATEGORIEN.find(k=>k.id==='fisch');
+  if (amenity==='restaurant'||amenity==='fast_food') return SUCHKATEGORIEN.find(k=>k.id==='gastro');
+  if (tourism==='hotel') return SUCHKATEGORIEN.find(k=>k.id==='hotel');
+  if (amenity==='hospital'||amenity==='clinic') return SUCHKATEGORIEN.find(k=>k.id==='krankenhaus');
+  if (amenity==='nursing_home'||amenity==='retirement_home') return SUCHKATEGORIEN.find(k=>k.id==='pflege');
+  if (amenity==='social_facility') return SUCHKATEGORIEN.find(k=>k.id==='pflege');
+  if (amenity==='rehabilitation'||healthcare==='rehabilitation') return SUCHKATEGORIEN.find(k=>k.id==='reha');
+
+  // By name keywords
+  if (/metzger|fleischer|schlachter|fleisch|wurst/.test(n)) return SUCHKATEGORIEN.find(k=>k.id==='metzgerei');
+  if (/bäcker|konditor|backstube|bäckerei/.test(n)) return SUCHKATEGORIEN.find(k=>k.id==='baeckerei');
+  if (/fisch|räucher/.test(n)) return SUCHKATEGORIEN.find(k=>k.id==='fisch');
+  if (/restaurant|gaststätte|gasthof|wirtshaus|bistro|imbiss|pizzeria|steakhouse|döner/.test(n)) return SUCHKATEGORIEN.find(k=>k.id==='gastro');
+  if (/hotel|pension|gasthof/.test(n)) return SUCHKATEGORIEN.find(k=>k.id==='hotel');
+  if (/krankenhaus|klinikum|klinik|hospital/.test(n)) return SUCHKATEGORIEN.find(k=>k.id==='krankenhaus');
+  if (/pflegeheim|seniorenheim|altenheim|altenpflege|senioren|pflegezentrum|awo|caritas|diakonie|vitanas|korian|azurit|pflege/.test(n)) return SUCHKATEGORIEN.find(k=>k.id==='pflege');
+  if (/reha|rehabilitation|sanatorium|kur/.test(n)) return SUCHKATEGORIEN.find(k=>k.id==='reha');
+
+  return null; // skip unknown
+}
+
+function renderErgebnisListe(results, radius) {
+  const res = document.getElementById('map-results');
+  if (!results.length) {
+    res.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3)">
+      <div style="font-size:32px;margin-bottom:8px">🔍</div>
+      <div>Keine Betriebe gefunden im ${radius} km Radius.</div>
+      <div style="font-size:12px;margin-top:6px">Tipp: Radius vergrößern oder andere Kategorien wählen</div>
+    </div>`;
+    return;
+  }
+
+  // Group by category
+  const gruppen = {};
+  results.forEach(r => {
+    if (!gruppen[r.kat.id]) gruppen[r.kat.id] = {kat:r.kat, items:[]};
+    gruppen[r.kat.id].items.push(r);
   });
-  container.innerHTML = `
-    <div style="display:flex;justify-content:space-between;padding:8px 0;margin-bottom:8px">
-      <span style="font-size:13px;color:var(--text2);font-weight:700">${filtered.length} Betriebe gefunden</span>
-      <span style="font-size:11px;color:var(--green)">${filtered.filter(r=>r.isLead).length} bereits als Lead ✓</span>
+
+  const total = results.length;
+  const leads = results.filter(r=>r.isLead).length;
+
+  res.innerHTML = `
+    <div style="padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;font-size:14px">${total} Betriebe gefunden</span>
+      <span style="font-size:12px;color:var(--green)">${leads} bereits als Lead ✓</span>
     </div>
-    ${Object.values(grouped).map(g=>`
-      <div style="margin-bottom:16px">
-        <div style="font-size:12px;font-weight:700;color:${g.branche.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;border-bottom:1px solid ${g.branche.color}33;padding-bottom:4px">
-          ${g.branche.emoji} ${g.branche.label} (${g.items.length})
+    ${Object.values(gruppen).map(g => `
+      <div style="margin-bottom:0">
+        <div style="padding:8px 16px;background:${g.kat.color}11;border-bottom:1px solid ${g.kat.color}33;font-size:12px;font-weight:800;color:${g.kat.color}">
+          ${g.kat.emoji} ${g.kat.label.toUpperCase()} · ${g.items.length} gefunden
         </div>
-        ${g.items.slice(0,25).map(r=>`
-          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:${r.isLead?'#10b98111':'var(--card)'};border:1px solid ${r.isLead?'#10b98133':'var(--border)'};border-radius:8px;margin-bottom:4px">
-            <div style="font-size:18px;flex-shrink:0">${r.isLead?'✅':r.branche.emoji}</div>
+        ${g.items.slice(0,30).map(r => `
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);background:${r.isLead?'#10b98108':'transparent'};display:flex;align-items:center;gap:10px">
+            <div style="font-size:18px;flex-shrink:0">${r.isLead?'✅':r.kat.emoji}</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</div>
               ${r.adresse?`<div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${r.adresse}</div>`:''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
-              ${r.telefon?`<a href="tel:${r.telefon}" style="background:#10b98122;color:var(--green);border-radius:6px;padding:4px 8px;font-size:12px;text-decoration:none">📞</a>`:''}
-              <a href="https://www.google.de/search?q=${encodeURIComponent(r.name+' '+r.adresse)}" target="_blank" style="background:#4285f422;color:#4285f4;border-radius:6px;padding:4px 8px;font-size:11px;text-decoration:none" title="Google Suche">🔍</a>
-              ${!r.isLead?`<button onclick="addLeadFromMap('${r.name.replace(/'/g,"\'")}','${r.branche.label}',${r.lat},${r.lng},'${(r.adresse||'').replace(/'/g,"\'")}','${r.telefon||''}')" style="background:var(--blue-dark);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:700">+Lead</button>`:'<span style="color:var(--green);font-size:11px;font-weight:700;padding:4px 8px">✓</span>'}
+              ${r.telefon?`<a href="tel:${r.telefon}" style="background:#10b98122;color:var(--green);border-radius:6px;padding:5px 8px;font-size:12px;text-decoration:none" title="${r.telefon}">📞</a>`:''}
+              <a href="https://www.google.de/search?q=${encodeURIComponent(r.name+' '+r.adresse)}" target="_blank" style="background:#4285f422;color:#4285f4;border-radius:6px;padding:5px 8px;font-size:12px;text-decoration:none" title="Google Suche">🔍</a>
+              ${!r.isLead
+                ?`<button onclick="addLeadFromMap('${r.name.replace(/'/g,"\'")}','${r.kat.label}',${r.lat},${r.lng},'${(r.adresse||'').replace(/'/g,"\'")}','${r.telefon||''}')" style="background:var(--blue-dark);color:#fff;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700">+Lead</button>`
+                :`<span style="color:var(--green);font-size:11px;padding:5px 4px;font-weight:700">✓</span>`}
             </div>
           </div>`).join('')}
-        ${g.items.length>25?`<div style="text-align:center;font-size:12px;color:var(--text3);padding:4px">+${g.items.length-25} weitere – Radius verkleinern</div>`:''}
+        ${g.items.length>30?`<div style="padding:8px 16px;font-size:12px;color:var(--text3);text-align:center">+${g.items.length-30} weitere – Radius verkleinern für mehr Details</div>`:''}
       </div>`).join('')}`;
 }
 
-function searchNearby(){
-  if(!navigator.geolocation){alert('GPS nicht verfügbar');return;}
-  document.getElementById('map-results').innerHTML=`<div style="text-align:center;padding:16px;color:var(--blue)"><div class="spinner" style="margin:0 auto 8px"></div>Suche Betriebe in der Nähe…</div>`;
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const {latitude:lat,longitude:lng}=pos.coords;
-    if(!_map){initMap();}
-    setTimeout(()=>{
-      _map.setView([lat,lng],13);
-      const radius = document.getElementById('map-radius')?.value || 5000;
-      searchOverpass(lat,lng,Number(radius));
-    },200);
-  },()=>alert('GPS-Berechtigung benötigt. Bitte in Browser-Einstellungen erlauben.'));
+function getMyLocation() {
+  if (!navigator.geolocation) { alert('GPS nicht verfügbar'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    if (!_map) initMap();
+    _map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+    L.marker([pos.coords.latitude, pos.coords.longitude], {icon: L.divIcon({
+      html: '<div style="background:#3b82f6;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>',
+      iconSize:[16,16], iconAnchor:[8,8]
+    })}).addTo(_map).bindPopup('📍 Mein Standort').openPopup();
+  }, () => alert('GPS-Berechtigung benötigt'));
 }
 
-function searchOverpass(lat,lng){
-  const r=2000; // 2km radius
-  const queries=BRANCHEN.map(b=>`node["amenity"~"restaurant|fast_food|cafe|bar"](around:${r},${lat},${lng});`).join('');
-  const food=`[out:json][timeout:10];(node["shop"~"butcher|bakery|supermarket|convenience|greengrocer|deli|organic"](around:${r},${lat},${lng});node["amenity"~"restaurant|fast_food|cafe|bar|canteen"](around:${r},${lat},${lng}););out body;`;
-
-  fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(food)}`)
-    .then(r=>r.json())
-    .then(data=>{
-      // Clear old search markers (keep lead markers)
-      _markers.forEach(m=>{if(m._isSearch)_map.removeLayer(m);});
-      _markers=_markers.filter(m=>!m._isSearch);
-
-      const elements=data.elements||[];
-      let found=0;
-      elements.forEach(el=>{
-        if(!el.lat||!el.lon)return;
-        const name=el.tags?.name||'Unbekannt';
-        const shop=el.tags?.shop||el.tags?.amenity||'';
-        let branche=BRANCHEN[6]; // sonstige
-        if(shop.includes('butcher'))branche=BRANCHEN[0];
-        else if(shop.includes('baker'))branche=BRANCHEN[1];
-        else if(shop.includes('organic')||shop.includes('greengrocer'))branche=BRANCHEN[2];
-        else if(['restaurant','fast_food','cafe','bar','canteen'].includes(shop))branche=BRANCHEN[3];
-        else if(['supermarket','convenience'].includes(shop))branche=BRANCHEN[4];
-
-        const icon=L.divIcon({
-          html:`<div style="background:${branche.color};width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.4)">${branche.emoji}</div>`,
-          iconSize:[28,28],iconAnchor:[14,14]
-        });
-        const m=L.marker([el.lat,el.lon],{icon}).addTo(_map);
-        m._isSearch=true;
-        m.bindPopup(`
-          <div style="min-width:160px">
-            <b style="font-size:14px">${name}</b><br/>
-            <span style="color:#666;font-size:12px">${branche.label}</span><br/>
-            <button onclick="addLeadFromMap('${name.replace(/'/g,"\\'")}','${branche.label}',${el.lat},${el.lon})" style="margin-top:8px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;width:100%">+ Als Lead speichern</button>
-          </div>`);
-        _markers.push(m);
-        found++;
-      });
-
-      document.getElementById('map-results').innerHTML=`
-        <div style="color:var(--text2);font-size:13px;text-align:center;padding:8px">${found} Lebensmittelbetriebe gefunden · Tippe auf einen Pin für Details</div>`;
-    })
-    .catch(()=>{
-      document.getElementById('map-results').innerHTML=`<div style="color:var(--red);font-size:13px;text-align:center;padding:8px">Suche fehlgeschlagen. Bitte Internet prüfen.</div>`;
+function showLeadsOnMap() {
+  if (!_map) return;
+  _markers.forEach(m => { if (m._isLead) _map.removeLayer(m); });
+  _markers = _markers.filter(m => !m._isLead);
+  (state.leads||[]).forEach(l => {
+    if (!l.lat || !l.lng) return;
+    const col = {Neu:'#3b82f6',Kontaktiert:'#f59e0b',Qualifiziert:'#8b5cf6',Gewonnen:'#10b981',Verloren:'#ef4444'}[l.status]||'#6b7280';
+    const icon = L.divIcon({
+      html: `<div style="background:${col};width:26px;height:26px;border-radius:50%;border:3px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.4)">👤</div>`,
+      iconSize:[26,26], iconAnchor:[13,13]
     });
-}
-
-function addLeadFromMap(name, branche, lat, lng, adresse, telefon) {
-  const exists = (state.leads||[]).some(l => l.firma === name);
-  if (exists) { alert(`"${name}" ist bereits ein Lead!`); return; }
-  const newLead = {
-    id: Date.now()+'', firma: name, kontakt: '', email: '',
-    telefon: telefon || '', branche, adresse: adresse||'',
-    status: 'Neu', prioritaet: 'Mittel',
-    naechsterSchritt: 'Kontakt aufnehmen',
-    notizen: `Via Karte hinzugefügt. Adresse: ${adresse||'unbekannt'}`,
-    erstellt: heute(), letzterKontakt: heute(), lat, lng
-  };
-  state.leads = [...(state.leads||[]), newLead];
-  // Auto reminder
-  const d=new Date();d.setDate(d.getDate()+3);
-  const aufg={id:'nf-'+Date.now(),titel:`📞 Kontaktieren: ${name}`,
-    beschreibung:`Neuer Kaltakquise-Lead. Branche: ${branche}`,
-    faellig:d.toISOString().split('T')[0],prioritaet:'Mittel',
-    erledigt:false,bezug:name,typ:'Nachfass',autoErstellt:true,
-    kanal:null};
-  state.aufgaben=[...(state.aufgaben||[]),aufg];
-  save('leads');save('aufgaben');updateBadges();
-  // Update marker to green
-  renderMapResultsList();
-  alert(`✅ "${name}" als Lead gespeichert!
-⏰ Erinnerung in 3 Tagen`);
-}
-
-function showLeadsOnMap(){
-  if(!_map)return;
-  _markers.forEach(m=>{if(m._isLead)_map.removeLayer(m);});
-  _markers=_markers.filter(m=>!m._isLead);
-  state.leads.forEach(l=>{
-    if(!l.lat||!l.lng)return;
-    const col=sc[l.status]||'#6b7280';
-    const icon=L.divIcon({
-      html:`<div style="background:${col};width:26px;height:26px;border-radius:50%;border:3px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.4)">👤</div>`,
-      iconSize:[26,26],iconAnchor:[13,13]
-    });
-    const m=L.marker([l.lat,l.lng],{icon}).addTo(_map);
-    m._isLead=true;
+    const m = L.marker([l.lat, l.lng], {icon}).addTo(_map);
+    m._isLead = true;
     m.bindPopup(`<b>${l.firma}</b><br/><span style="color:#666">${l.status}</span>`);
     _markers.push(m);
   });
 }
 
-// ═══════════════════════════════════════════════════════
-// KI ASSISTENT
-// ═══════════════════════════════════════════════════════
-function renderKI(){
-  const el=document.getElementById('screen-ki');
-  el.style.cssText='display:flex;flex-direction:column;height:calc(100vh - env(safe-area-inset-top) - 64px);overflow:hidden;padding:0';
-  el.innerHTML=`
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:18px;font-weight:800">🤖 KI-Assistent</div>
-        ${localStorage.getItem('vp_apikey') ? 
-          '<span style="background:#10b98122;color:#10b981;border-radius:10px;padding:2px 10px;font-size:11px;font-weight:700">● Aktiv</span>' : 
-          '<button onclick="document.getElementById(\'firebase-setup\').style.display=\'block\'" style="background:#a855f722;color:#a855f7;border:1px solid #a855f744;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700">⚙️ API-Key eingeben</button>'}
-      </div>
-      <div style="color:var(--text3);font-size:12px">Kennt deine Leads & Angebote · Claude AI</div>
-    </div>
-    <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;padding-bottom:20px;-webkit-overflow-scrolling:touch"></div>
-    <div style="flex-shrink:0;background:var(--card);border-top:1px solid var(--border);padding:10px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;align-items:center">
-      <input id="ki-input" placeholder="Frag mich etwas zu deinen Leads…" 
-        style="flex:1;background:var(--input);border:1px solid var(--border);border-radius:22px;padding:10px 16px;color:var(--text);font-size:15px"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendKI();}"/>
-      <button class="btn btn-primary btn-sm" onclick="sendKI()" id="ki-send-btn" style="flex-shrink:0;border-radius:22px;padding:10px 16px">➤ Senden</button>
-    </div>`;
-  renderChatMessages();
-  // Focus input after render
-  setTimeout(()=>{const inp=document.getElementById('ki-input');if(inp)inp.focus();},300);
+function addLeadFromMap(name, branche, lat, lng, adresse, telefon) {
+  const exists = (state.leads||[]).some(l => l.firma === name);
+  if (exists) { alert(`"${name}" ist bereits als Lead gespeichert!`); return; }
+  // Parse address
+  const adrParts = (adresse||'').split(' ');
+  const plz = adrParts.find(p => /^\d{5}$/.test(p)) || '';
+  const plzIdx = plz ? adrParts.indexOf(plz) : -1;
+  const ort = plzIdx >= 0 ? adrParts.slice(plzIdx+1).join(' ') : '';
+  const strasse = plzIdx > 0 ? adrParts.slice(0, plzIdx).join(' ') : (adresse||'');
+
+  const newLead = {
+    id: Date.now()+'', firma: name, kontakt: '', email: '',
+    telefon: telefon||'', branche, strasse, plz, ort,
+    status: 'Neu', prioritaet: 'Mittel',
+    naechsterSchritt: 'Kontakt aufnehmen',
+    notizen: `Kaltakquise. ${adresse}`,
+    erstellt: heute(), letzterKontakt: heute(), lat, lng
+  };
+  state.leads = [...(state.leads||[]), newLead];
+  // Auto reminder
+  const d = new Date(); d.setDate(d.getDate()+3);
+  state.aufgaben = [...(state.aufgaben||[]), {
+    id:'nf-'+Date.now(), titel:`📞 Kontaktieren: ${name}`,
+    beschreibung:`Kaltakquise-Lead. Branche: ${branche}`,
+    faellig:d.toISOString().split('T')[0], prioritaet:'Mittel',
+    erledigt:false, bezug:name, typ:'Nachfass', autoErstellt:true
+  }];
+  save('leads'); save('aufgaben'); updateBadges();
+
+  // Update markers
+  _markers.forEach(m => {
+    if (m._isSearch) {
+      const popup = m.getPopup();
+      if (popup && popup.getContent().includes(name.slice(0,15))) {
+        m.setIcon(L.divIcon({
+          html: `<div style="background:#10b981;width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.4)">✓</div>`,
+          iconSize:[28,28], iconAnchor:[14,14]
+        }));
+      }
+    }
+  });
+  alert(`✅ "${name}" als Lead gespeichert!\n⏰ Erinnerung in 3 Tagen`);
 }
 
-function renderChatMessages(){
-  const el=document.getElementById('chat-msgs');if(!el)return;
-  el.innerHTML=state.chatMessages.map(m=>`<div class="${m.role==='user'?'msg-user':'msg-ai'}">${m.role==='ai'?`<div style="color:var(--purple);font-size:10px;font-weight:700;margin-bottom:4px">🤖 KI-ASSISTENT</div>`:''}${m.text}</div>`).join('');
-  el.scrollTop=el.scrollHeight;
-}
-
-async function sendKI(){
-  const inp=document.getElementById('ki-input');if(!inp)return;
-  const text=inp.value.trim();if(!text)return;
-  inp.value='';
-  state.chatMessages=[...state.chatMessages,{role:'user',text}];
-  renderChatMessages();
-
-  const ctx=`Leads (${state.leads.length}): ${state.leads.map(l=>`${l.firma}(${l.status})`).join(', ')}. Angebote (${state.angebote.length}): ${state.angebote.map(a=>`${a.titel}:€${a.wert}(${a.status})`).join(', ')}.`;
-  const history=state.chatMessages.slice(-10).map(m=>`${m.role==='user'?'Nutzer':'Assistent'}: ${m.text}`).join('\n');
-
-  const apiKey=localStorage.getItem('vp_apikey')||'';
-  if(!apiKey){
-    state.chatMessages=[...state.chatMessages,{role:'ai',text:'⚠️ Kein API-Key gespeichert.\n\nBitte tippe oben rechts auf 🔥 Firebase und trage deinen Anthropic API-Key ein.\n\nDen Key findest du unter: console.anthropic.com → API Keys'}];
-    renderChatMessages();return;
-  }
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:`Du bist ein erfahrener Vertriebscoach für Lebensmittelverarbeitungsmaschinen (GRAEF, ZERMAT, BASTRA, DÜKER-REX). Kontext: ${ctx}. Antworte auf Deutsch, präzise und praxisorientiert.`,messages:[{role:'user',content:`${history}\nNutzer: ${text}`}]})});
-    const data=await res.json();
-    if(data.error){throw new Error(data.error.message);}
-    const reply=data.content?.map(b=>b.text||'').join('')||'Fehler beim Laden.';
-    state.chatMessages=[...state.chatMessages,{role:'ai',text:reply}];
-  }catch(e){
-    state.chatMessages=[...state.chatMessages,{role:'ai',text:'❌ Fehler: '+e.message+'\n\nBitte API-Key prüfen.'}];
-  }
-  renderChatMessages();
-}
 
 // ═══════════════════════════════════════════════════════
 // STATISTIKEN
