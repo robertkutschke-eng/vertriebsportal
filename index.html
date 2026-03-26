@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
-<title>Vertriebsportal AS</title>
+<title>Vertrieb Pro</title>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Vertriebsportal AS"/>
+<meta name="apple-mobile-web-app-title" content="Vertrieb Pro"/>
 <meta name="theme-color" content="#050a18"/>
 <link rel="manifest" href="manifest.json"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -132,8 +132,8 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
 <div id="firebase-setup">
   <div class="setup-card">
     <div style="font-size:36px;margin-bottom:12px">🔥</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px"><h2 style="color:var(--text);font-size:22px;margin:0">Cloud-Sync einrichten</h2><button class="btn btn-sm btn-secondary" onclick="closeSyncSetup()">Schließen</button></div>
-    <p style="color:var(--text3);font-size:13px;line-height:1.6;margin-bottom:14px">Optional. Ohne Firebase läuft die App sofort lokal im Browser. Mit Firebase synchronisieren sich iPhone, Tablet und PC automatisch.</p><div style="background:#10b98122;border:1px solid #10b98144;border-radius:10px;padding:12px;margin-bottom:16px;color:#10b981;font-size:13px;font-weight:700">Die App startet jetzt auch ohne Setup direkt. Cloud-Sync ist nur Zusatz.</div>
+    <h2 style="color:var(--text);font-size:22px;margin-bottom:8px">Firebase einrichten</h2>
+    <p style="color:var(--text3);font-size:13px;line-height:1.6;margin-bottom:20px">Einmalig – danach synchronisieren sich iPhone, Tablet und PC automatisch.</p>
     <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:20px">
       <div class="setup-step"><div class="step-num">1</div><p style="color:var(--text3);font-size:13px">Gehe zu <a href="https://console.firebase.google.com" style="color:var(--blue)">console.firebase.google.com</a> → Projekt <b style="color:var(--text)">Vertrieb AS</b> öffnen</p></div>
       <div class="setup-step"><div class="step-num">2</div><p style="color:var(--text3);font-size:13px">Zahnrad ⚙️ → Projekteinstellungen → Web-App <b style="color:var(--text)">&lt;/&gt;</b> → firebaseConfig kopieren</p></div>
@@ -155,7 +155,7 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
       <div class="logo-icon">VP</div>
       <div>
         <div class="logo-text">Vertrieb Pro</div>
-        <div class="logo-sub">AS Technical Solutions</div>
+        <div class="logo-sub">powered by Claude AI</div>
       </div>
     </div>
     <div id="header-right"></div>
@@ -709,10 +709,6 @@ const BRANCHEN=[
 ];
 
 function renderKarte(){
-  if(typeof L==='undefined'){
-    document.getElementById('screen-karte').innerHTML=`<div class="card" style="margin:12px"><div style="font-size:18px;font-weight:800;margin-bottom:8px">Karte</div><div style="color:var(--text3);line-height:1.6">Die Karte konnte gerade nicht geladen werden. Alle anderen Bereiche der App laufen weiter. Für Netlify/Safari neu laden.</div></div>`;
-    return;
-  }
   document.getElementById('screen-karte').innerHTML=`
     <h2 style="font-size:20px;font-weight:800;margin-bottom:12px">🗺️ Kaltakquise-Karte</h2>
     <div class="map-controls">
@@ -1109,16 +1105,6 @@ function saveVideo(id){
   if(id)state.videos=state.videos.map(v=>v.id===id?{...v,...data}:v);
   else state.videos=[...state.videos,{...data,id:Date.now()+''}];
   save('videos');closeSheet();renderVideoList();
-}
-
-// ═══════════════════════════════════════════════════════
-// SYNC SETUP (OPTIONAL)
-// ═══════════════════════════════════════════════════════
-function openSyncSetup(){
-  document.getElementById('firebase-setup').style.display='block';
-}
-function closeSyncSetup(){
-  document.getElementById('firebase-setup').style.display='none';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1800,6 +1786,11 @@ const renders={
 // ═══════════════════════════════════════════════════════
 async function init(){
   const hasCfg=!!localStorage.getItem('vp_cfg');
+  if(!hasCfg){
+    document.getElementById('splash').style.display='none';
+    document.getElementById('firebase-setup').style.display='block';
+    return;
+  }
 
   // Load data
   const load=async()=>{
@@ -1826,18 +1817,14 @@ async function init(){
     updateBadges();
   };
 
-  if(window.FBDB) await load();
-  else if(hasCfg){
-    window.addEventListener('fb-ready',load,{once:true});
-    setTimeout(load,1800);
-  } else {
-    await load();
+  if(window.FBDB)await load();
+  else{
+    window.addEventListener('fb-ready',load);
+    setTimeout(load,3000); // fallback: use localStorage after 3s
   }
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
-  const hr=document.getElementById('header-right');
-  if(hr){hr.innerHTML='<button class="btn btn-sm btn-secondary" onclick="openSyncSetup()">Sync</button>'; }
   // Auto-fill Firebase values from screenshot
   const savedCfg=JSON.parse(localStorage.getItem('vp_cfg')||'null');
   if(!savedCfg){
