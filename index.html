@@ -820,28 +820,83 @@ function saveAufgabe(id){
 // ═══════════════════════════════════════════════════════
 let _map=null,_markers=[];
 const BRANCHEN=[
-  {id:'metzgerei',label:'Metzgerei/Fleischer',color:'#ef4444',emoji:'🥩',query:'Metzgerei'},
-  {id:'baeckerei',label:'Bäckerei',color:'#f59e0b',emoji:'🥐',query:'Bäckerei'},
-  {id:'vegi',label:'Vegi/Bio/Reform',color:'#10b981',emoji:'🥗',query:'Bio Laden'},
-  {id:'gastro',label:'Gastronomie',color:'#f97316',emoji:'🍽️',query:'Restaurant'},
-  {id:'supermarkt',label:'Supermarkt/LEH',color:'#3b82f6',emoji:'🛒',query:'Supermarkt'},
-  {id:'catering',label:'Catering/Großküche',color:'#a855f7',emoji:'🍱',query:'Catering'},
-  {id:'sonstige',label:'Sonstige',color:'#64748b',emoji:'🏭',query:'Lebensmittel'},
+  // Lebensmittel
+  {id:'metzgerei',label:'Metzgerei',color:'#ef4444',emoji:'🥩',osm:'shop=butcher'},
+  {id:'baeckerei',label:'Bäckerei',color:'#f59e0b',emoji:'🥐',osm:'shop=bakery'},
+  {id:'fisch',label:'Fischhandel',color:'#06b6d4',emoji:'🐟',osm:'shop=seafood'},
+  {id:'gastro',label:'Restaurant',color:'#f97316',emoji:'🍽️',osm:'amenity=restaurant'},
+  {id:'cafe',label:'Café/Bistro',color:'#d97706',emoji:'☕',osm:'amenity=cafe'},
+  {id:'supermarkt',label:'Supermarkt',color:'#3b82f6',emoji:'🛒',osm:'shop=supermarket'},
+  {id:'convenience',label:'Kiosk/Convenience',color:'#6366f1',emoji:'🏪',osm:'shop=convenience'},
+  {id:'bio',label:'Bio/Reform',color:'#10b981',emoji:'🥗',osm:'shop=organic'},
+  {id:'catering',label:'Catering',color:'#a855f7',emoji:'🍱',osm:'shop=catering'},
+  {id:'mensa',label:'Kantine/Mensa',color:'#8b5cf6',emoji:'🍜',osm:'amenity=canteen'},
+  // Gesundheit/Pflege (DGVU)
+  {id:'krankenhaus',label:'Krankenhaus',color:'#dc2626',emoji:'🏥',osm:'amenity=hospital'},
+  {id:'pflege',label:'Pflegeheim',color:'#db2777',emoji:'🏠',osm:'amenity=nursing_home'},
+  {id:'altenheim',label:'Seniorenheim',color:'#be185d',emoji:'👴',osm:'amenity=social_facility'},
 ];
+
+// OSM queries for each type
+function getBranchenOSMQuery(brancheIds, radius, lat, lng) {
+  const all = brancheIds.length === 0 ? BRANCHEN : BRANCHEN.filter(b => brancheIds.has(b.id));
+  const parts = all.map(b => {
+    const [k,v] = b.osm.split('=');
+    return `node["${k}"="${v}"](around:${radius},${lat},${lng});way["${k}"="${v}"](around:${radius},${lat},${lng});`;
+  });
+  return `[out:json][timeout:25];(${parts.join('')});out center;`;
+}
+
+function brancheForResult(tags) {
+  if (tags.shop==='butcher') return BRANCHEN.find(b=>b.id==='metzgerei');
+  if (tags.shop==='bakery') return BRANCHEN.find(b=>b.id==='baeckerei');
+  if (tags.shop==='seafood'||tags.shop==='fish') return BRANCHEN.find(b=>b.id==='fisch');
+  if (tags.amenity==='restaurant'||tags.amenity==='fast_food') return BRANCHEN.find(b=>b.id==='gastro');
+  if (tags.amenity==='cafe') return BRANCHEN.find(b=>b.id==='cafe');
+  if (tags.shop==='supermarket') return BRANCHEN.find(b=>b.id==='supermarkt');
+  if (tags.shop==='convenience') return BRANCHEN.find(b=>b.id==='convenience');
+  if (tags.shop==='organic'||tags.shop==='greengrocer') return BRANCHEN.find(b=>b.id==='bio');
+  if (tags.shop==='catering') return BRANCHEN.find(b=>b.id==='catering');
+  if (tags.amenity==='canteen') return BRANCHEN.find(b=>b.id==='mensa');
+  if (tags.amenity==='hospital') return BRANCHEN.find(b=>b.id==='krankenhaus');
+  if (tags.amenity==='nursing_home') return BRANCHEN.find(b=>b.id==='pflege');
+  if (tags.amenity==='social_facility') return BRANCHEN.find(b=>b.id==='altenheim');
+  return BRANCHEN.find(b=>b.id==='metzgerei'); // fallback
+}
 
 function renderKarte(){
   document.getElementById('screen-karte').innerHTML=`
-    <h2 style="font-size:20px;font-weight:800;margin-bottom:12px">🗺️ Kaltakquise-Karte</h2>
-    <div class="map-controls">
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="getMyLocation()">📍 Mein Standort</button>
-      <button class="btn btn-secondary btn-sm" onclick="searchNearby()">🔍 Betriebe suchen</button>
-      <button class="btn btn-secondary btn-sm" onclick="showLeadsOnMap()">👥 Leads zeigen</button>
+      <select id="map-radius" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px">
+        <option value="2000">2 km</option>
+        <option value="5000" selected>5 km</option>
+        <option value="10000">10 km</option>
+        <option value="25000">25 km</option>
+        <option value="50000">50 km</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="showLeadsOnMap()">👥 Leads</button>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      ${BRANCHEN.map(b=>`<span style="background:${b.color}22;color:${b.color};border:1px solid ${b.color}44;border-radius:10px;padding:2px 10px;font-size:11px;font-weight:700">${b.emoji} ${b.label}</span>`).join('')}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="branche-filter">
+      ${BRANCHEN.map(b=>`<button onclick="toggleBrancheFilter('${b.id}',this)" 
+        style="background:${b.color}22;color:${b.color};border:1px solid ${b.color}44;border-radius:10px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">
+        ${b.emoji} ${b.label}</button>`).join('')}
     </div>
-    <div id="map"></div>
-    <div id="map-results" style="margin-top:12px"></div>`;
+    <button class="btn btn-primary btn-full btn-sm" onclick="searchNearby()" style="margin-bottom:10px">🔍 Alle Betriebe in der Nähe suchen</button>
+    <div id="map" style="height:40vh;border-radius:12px;overflow:hidden;margin-bottom:8px"></div>
+    <div id="map-results"></div>`;
+}
+
+let _aktiveBranchen = new Set();
+function toggleBrancheFilter(id, btn) {
+  if (_aktiveBranchen.has(id)) {
+    _aktiveBranchen.delete(id);
+    btn.style.opacity = '0.4';
+  } else {
+    _aktiveBranchen.add(id);
+    btn.style.opacity = '1';
+  }
+  renderMapResultsList();
 }
 
 function initMap(){
@@ -869,14 +924,106 @@ function getMyLocation(){
   },()=>alert('Standort konnte nicht ermittelt werden.\nBitte GPS-Berechtigung erlauben.'));
 }
 
+let _allMapResults = [];
+
+function searchOverpass(lat, lng, radius) {
+  radius = radius || 5000;
+  const query = getBranchenOSMQuery(new Set(), radius, lat, lng);
+  document.getElementById('map-results').innerHTML = `<div style="text-align:center;padding:16px;color:var(--blue)"><div class="spinner" style="margin:0 auto 8px"></div>Suche ${Math.round(radius/1000)} km Umkreis…</div>`;
+
+  fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query))
+    .then(r => r.json())
+    .then(data => {
+      _markers.forEach(m => { if(m._isSearch) _map.removeLayer(m); });
+      _markers = _markers.filter(m => !m._isSearch);
+      const elements = data.elements || [];
+      _allMapResults = [];
+
+      elements.forEach(el => {
+        const lat2 = el.lat || el.center?.lat;
+        const lon2 = el.lon || el.center?.lon;
+        if (!lat2 || !lon2) return;
+        const tags = el.tags || {};
+        const name = tags.name || tags['name:de'] || 'Unbekannter Betrieb';
+        const branche = brancheForResult(tags);
+        const adresse = [tags['addr:street'], tags['addr:housenumber'], tags['addr:city']].filter(Boolean).join(' ');
+        const telefon = tags.phone || tags['contact:phone'] || '';
+        const website = tags.website || tags['contact:website'] || '';
+        const isLead = (state.leads||[]).some(l => l.firma === name);
+
+        const icon = L.divIcon({
+          html: `<div style="background:${isLead?'#10b981':branche.color};width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 10px rgba(0,0,0,.5)">${isLead?'✓':branche.emoji}</div>`,
+          iconSize:[30,30],iconAnchor:[15,15]
+        });
+        const m = L.marker([lat2, lon2], {icon}).addTo(_map);
+        m._isSearch = true;
+        m.bindPopup(`<div style="min-width:200px;font-family:system-ui">
+          <div style="font-weight:700;font-size:15px;margin-bottom:4px">${name}</div>
+          <div style="background:${branche.color}22;color:${branche.color};display:inline-block;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;margin-bottom:6px">${branche.emoji} ${branche.label}</div>
+          ${adresse?`<div style="font-size:12px;color:#666;margin-bottom:4px">📍 ${adresse}</div>`:''}
+          ${telefon?`<div style="font-size:12px;margin-bottom:6px">📞 <a href="tel:${telefon}" style="color:#1d4ed8">${telefon}</a></div>`:''}
+          ${isLead?'<div style="color:#10b981;font-size:12px;font-weight:700;margin-bottom:6px">✓ Bereits als Lead</div>':''}
+          <div style="display:flex;gap:6px;margin-top:8px">
+            ${!isLead?`<button onclick="addLeadFromMap('${name.replace(/'/g,"\'")}','${branche.label}',${lat2},${lon2},'${adresse.replace(/'/g,"\'")}','${telefon}')" style="flex:1;background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:6px;font-size:11px;font-weight:700;cursor:pointer">+ Lead</button>`:''}
+            ${telefon?`<a href="tel:${telefon}" style="flex:1;background:#128C7E;color:#fff;border-radius:6px;padding:6px;font-size:11px;font-weight:700;text-align:center;text-decoration:none">📞</a>`:''}
+          </div></div>`);
+        _markers.push(m);
+        _allMapResults.push({name,branche,adresse,telefon,website,lat:lat2,lng:lon2,isLead});
+      });
+      renderMapResultsList();
+    })
+    .catch(err => {
+      document.getElementById('map-results').innerHTML = `<div style="color:var(--red);font-size:13px;text-align:center;padding:12px">❌ Suche fehlgeschlagen. Bitte Internet prüfen.</div>`;
+    });
+}
+
+function renderMapResultsList() {
+  const container = document.getElementById('map-results');
+  if (!container || !_allMapResults.length) return;
+  const filtered = _aktiveBranchen.size>0 ? _allMapResults.filter(r=>_aktiveBranchen.has(r.branche.id)) : _allMapResults;
+  const grouped = {};
+  filtered.forEach(r => {
+    if (!grouped[r.branche.id]) grouped[r.branche.id]={branche:r.branche,items:[]};
+    grouped[r.branche.id].items.push(r);
+  });
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;padding:8px 0;margin-bottom:8px">
+      <span style="font-size:13px;color:var(--text2);font-weight:700">${filtered.length} Betriebe gefunden</span>
+      <span style="font-size:11px;color:var(--green)">${filtered.filter(r=>r.isLead).length} bereits als Lead ✓</span>
+    </div>
+    ${Object.values(grouped).map(g=>`
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:${g.branche.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;border-bottom:1px solid ${g.branche.color}33;padding-bottom:4px">
+          ${g.branche.emoji} ${g.branche.label} (${g.items.length})
+        </div>
+        ${g.items.slice(0,25).map(r=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:${r.isLead?'#10b98111':'var(--card)'};border:1px solid ${r.isLead?'#10b98133':'var(--border)'};border-radius:8px;margin-bottom:4px">
+            <div style="font-size:18px;flex-shrink:0">${r.isLead?'✅':r.branche.emoji}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</div>
+              ${r.adresse?`<div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${r.adresse}</div>`:''}
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              ${r.telefon?`<a href="tel:${r.telefon}" style="background:#10b98122;color:var(--green);border-radius:6px;padding:4px 8px;font-size:12px;text-decoration:none">📞</a>`:''}
+              ${!r.isLead?`<button onclick="addLeadFromMap('${r.name.replace(/'/g,"\'")}','${r.branche.label}',${r.lat},${r.lng},'${(r.adresse||'').replace(/'/g,"\'")}','${r.telefon||''}')" style="background:var(--blue-dark);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:700">+Lead</button>`:'<span style="color:var(--green);font-size:11px;font-weight:700;padding:4px 8px">✓</span>'}
+            </div>
+          </div>`).join('')}
+        ${g.items.length>25?`<div style="text-align:center;font-size:12px;color:var(--text3);padding:4px">+${g.items.length-25} weitere – Radius verkleinern</div>`:''}
+      </div>`).join('')}`;
+}
+
 function searchNearby(){
   if(!navigator.geolocation){alert('GPS nicht verfügbar');return;}
   document.getElementById('map-results').innerHTML=`<div style="text-align:center;padding:16px;color:var(--blue)"><div class="spinner" style="margin:0 auto 8px"></div>Suche Betriebe in der Nähe…</div>`;
   navigator.geolocation.getCurrentPosition(pos=>{
     const {latitude:lat,longitude:lng}=pos.coords;
-    _map.setView([lat,lng],14);
-    searchOverpass(lat,lng);
-  },()=>alert('GPS-Berechtigung benötigt'));
+    if(!_map){initMap();}
+    setTimeout(()=>{
+      _map.setView([lat,lng],13);
+      const radius = document.getElementById('map-radius')?.value || 5000;
+      searchOverpass(lat,lng,Number(radius));
+    },200);
+  },()=>alert('GPS-Berechtigung benötigt. Bitte in Browser-Einstellungen erlauben.'));
 }
 
 function searchOverpass(lat,lng){
@@ -928,14 +1075,31 @@ function searchOverpass(lat,lng){
     });
 }
 
-function addLeadFromMap(name,branche,lat,lng){
-  state.leads=[...state.leads,{
-    id:Date.now()+'',firma:name,kontakt:'',email:'',telefon:'',branche,
-    status:'Neu',prioritaet:'Mittel',naechsterSchritt:'Kontakt aufnehmen',
-    notizen:'Via Karte hinzugefügt',erstellt:heute(),letzterKontakt:heute(),lat,lng
-  }];
-  save('leads');updateBadges();
-  alert(`✅ "${name}" als Lead gespeichert!`);
+function addLeadFromMap(name, branche, lat, lng, adresse, telefon) {
+  const exists = (state.leads||[]).some(l => l.firma === name);
+  if (exists) { alert(`"${name}" ist bereits ein Lead!`); return; }
+  const newLead = {
+    id: Date.now()+'', firma: name, kontakt: '', email: '',
+    telefon: telefon || '', branche, adresse: adresse||'',
+    status: 'Neu', prioritaet: 'Mittel',
+    naechsterSchritt: 'Kontakt aufnehmen',
+    notizen: `Via Karte hinzugefügt. Adresse: ${adresse||'unbekannt'}`,
+    erstellt: heute(), letzterKontakt: heute(), lat, lng
+  };
+  state.leads = [...(state.leads||[]), newLead];
+  // Auto reminder
+  const d=new Date();d.setDate(d.getDate()+3);
+  const aufg={id:'nf-'+Date.now(),titel:`📞 Kontaktieren: ${name}`,
+    beschreibung:`Neuer Kaltakquise-Lead. Branche: ${branche}`,
+    faellig:d.toISOString().split('T')[0],prioritaet:'Mittel',
+    erledigt:false,bezug:name,typ:'Nachfass',autoErstellt:true,
+    kanal:null};
+  state.aufgaben=[...(state.aufgaben||[]),aufg];
+  save('leads');save('aufgaben');updateBadges();
+  // Update marker to green
+  renderMapResultsList();
+  alert(`✅ "${name}" als Lead gespeichert!
+⏰ Erinnerung in 3 Tagen`);
 }
 
 function showLeadsOnMap(){
