@@ -978,7 +978,6 @@ async function karteSucheOrt(ort) {
 async function karteSuche(lat, lng) {
   const res = document.getElementById('karte-results');
   const kmRadius = Number(document.getElementById('map-radius')?.value || 5);
-  const mRadius = kmRadius * 1000;
   const aktiv = KARTE_KATS.filter(k => _karteAktiv.has(k.id));
 
   if (!aktiv.length) {
@@ -986,62 +985,146 @@ async function karteSuche(lat, lng) {
     return;
   }
 
-  // Move map
-  if (!_map) karteInitMap();
-  setTimeout(() => {
-    if (_map) {
-      _map.setView([lat, lng], kmRadius<=3?14:kmRadius<=5?13:kmRadius<=10?12:11);
-      _map.invalidateSize();
-    }
-  }, 200);
+  if (!_map) { karteInitMap(); await new Promise(r=>setTimeout(r,400)); }
+  if (_map) { _map.setView([lat,lng], kmRadius<=3?14:kmRadius<=5?13:kmRadius<=10?12:11); _map.invalidateSize(); }
 
-  // My position marker
-  if (_map) {
-    L.marker([lat,lng],{icon:L.divIcon({
-      html:`<div style="background:#3b82f6;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>`,
-      iconSize:[14,14],iconAnchor:[7,7]
-    })}).addTo(_map).bindPopup('📍 Mein Standort').openPopup();
-  }
-
-  // Remove old search markers
-  _markers.forEach(m=>{if(m._ks)_map?.removeLayer(m);});
+  // Remove old markers
+  _markers.forEach(m=>{if(m._ks&&_map)_map.removeLayer(m);});
   _markers = _markers.filter(m=>!m._ks);
 
-  res.innerHTML = `<div style="text-align:center;padding:24px;color:var(--blue)"><div class="spinner" style="margin:0 auto 12px"></div><b>Suche ${aktiv.length} Kategorien…</b><br><span style="font-size:12px;color:var(--text3)">${kmRadius} km Umkreis</span></div>`;
+  // Add my position
+  if (_map) L.marker([lat,lng],{icon:L.divIcon({
+    html:`<div style="background:#3b82f6;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>`,
+    iconSize:[14,14],iconAnchor:[7,7]
+  })}).addTo(_map).bindPopup('📍 Mein Standort').openPopup();
 
-  // Build Overpass query
+  res.innerHTML = `<div style="text-align:center;padding:24px;color:var(--blue)"><div class="spinner" style="margin:0 auto 12px"></div><b>Suche läuft…</b><br><span style="font-size:12px;color:var(--text3)">${kmRadius} km · ${aktiv.length} Kategorien</span></div>`;
+
+  // Use Nominatim search for each category keyword
+  const allResults = [];
+  const seen = new Set();
+
+  // Build search terms from active categories
+  const suchTerms = [];
+  aktiv.forEach(k => {
+    k.namen.forEach(n => suchTerms.push({term: n, kat: k}));
+  });
+
+  // Batch: search top terms per category (max 3 per category to stay fast)
+  const batches = [];
+  aktiv.forEach(k => {
+    // Use first 3 most distinctive terms
+    k.namen.slice(0,3).forEach(n => batches.push({term:n, kat:k}));
+  });
+
+  let done = 0;
+  const total = batches.length;
+
+  for (const {term, kat} of batches) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?` +
+        `q=${encodeURIComponent(term)}&` +
+        `countrycodes=de&` +
+        `lat=${lat}&lon=${lng}&` +
+        `bounded=1&` +
+        `viewbox=${lng-kmRadius/55},${lat+kmRadius/110},${lng+kmRadius/55},${lat-kmRadius/110}&` +
+        `format=json&limit=50&addressdetails=1`;
+
+      const r = await fetch(url, {headers: {'Accept-Language': 'de', 'User-Agent': 'VertriebPro/1.0'}});
+      const data = await r.json();
+
+      data.forEach(el => {
+        if (!el.lat || !el.lon) return;
+        const name = (el.name || el.display_name?.split(',')[0] || '').trim();
+        if (!name || name.length < 2) return;
+
+        // Distance check
+        const dlat = (Number(el.lat)-lat)*111;
+        const dlng = (Number(el.lon)-lng)*111*Math.cos(lat*Math.PI/180);
+        const dist = Math.sqrt(dlat*dlat+dlng*dlng);
+        if (dist > kmRadius) return;
+
+        const key = name.toLowerCase().replace(/\s/g,'').slice(0,20);
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        const adresse = [el.address?.road, el.address?.house_number, el.address?.postcode, el.address?.city||el.address?.town||el.address?.village].filter(Boolean).join(' ');
+        const isLead = (state.leads||[]).some(l=>l.firma===name);
+
+        allResults.push({name, kat, adresse, tel:'', web:'', lat:Number(el.lat), lng:Number(el.lon), dist, isLead});
+      });
+
+      done++;
+      if (res) res.innerHTML = `<div style="text-align:center;padding:16px;color:var(--blue)"><div class="spinner" style="margin:0 auto 8px"></div>Suche läuft… ${done}/${total} · ${allResults.length} gefunden</div>`;
+
+      // Small delay to avoid rate limiting
+      await new Promise(r=>setTimeout(r,150));
+
+    } catch(e) {
+      console.warn('Suche Fehler für', term, e.message);
+    }
+  }
+
+  // Sort by distance
+  allResults.sort((a,b)=>a.dist-b.dist);
+
+  if (!allResults.length) {
+    // Fallback: try Overpass for at least hospitals/nursing homes
+    res.innerHTML = `<div style="text-align:center;padding:16px;color:var(--orange)">Nominatim leer – versuche Overpass…</div>`;
+    await karteSucheOverpass(lat, lng, kmRadius);
+    return;
+  }
+
+  karteZeigeErgebnisse(allResults, kmRadius);
+}
+
+async function karteSucheOverpass(lat, lng, kmRadius) {
+  const res = document.getElementById('karte-results');
+  const mRadius = kmRadius * 1000;
+  const aktiv = KARTE_KATS.filter(k => _karteAktiv.has(k.id));
+
   const parts = [];
   aktiv.forEach(k => {
     k.osm.forEach(([key,val]) => {
       parts.push(`node["${key}"="${val}"](around:${mRadius},${lat},${lng});`);
       parts.push(`way["${key}"="${val}"](around:${mRadius},${lat},${lng});`);
     });
-    k.namen.forEach(n => {
-      parts.push(`node["name"~"${n}",i](around:${mRadius},${lat},${lng});`);
-      parts.push(`way["name"~"${n}",i](around:${mRadius},${lat},${lng});`);
-    });
   });
 
-  const query = `[out:json][timeout:40];(${parts.join('')});out center tags;`;
+  if (!parts.length) {
+    res.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3)">Keine Ergebnisse gefunden.</div>`;
+    return;
+  }
 
   try {
-    const resp = await fetch('https://overpass-api.de/api/interpreter', {
+    const query = `[out:json][timeout:30];(${parts.join('')});out center tags;`;
+    const r = await fetch('https://overpass-api.de/api/interpreter', {
       method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'data=' + encodeURIComponent(query)
+      body:'data='+encodeURIComponent(query)
     });
-    if (!resp.ok) throw new Error('Overpass HTTP ' + resp.status);
-    const data = await resp.json();
-    karteZeigeErgebnisse(data.elements||[], aktiv, lat, lng);
+    const data = await r.json();
+    const seen = new Set();
+    const results = [];
+
+    (data.elements||[]).forEach(el => {
+      const la = el.lat||el.center?.lat, lo = el.lon||el.center?.lon;
+      if (!la||!lo) return;
+      const name = (el.tags?.name||'').trim();
+      if (!name||name.length<2) return;
+      const key = name.toLowerCase().slice(0,15)+Math.round(la*100)+Math.round(lo*100);
+      if (seen.has(key)) return;
+      seen.add(key);
+      const kat = karteErkenne(name, el.tags||{});
+      if (!kat||!_karteAktiv.has(kat.id)) return;
+      const adresse = [el.tags?.['addr:street'],el.tags?.['addr:housenumber'],el.tags?.['addr:postcode'],el.tags?.['addr:city']].filter(Boolean).join(' ');
+      results.push({name,kat,adresse,tel:el.tags?.phone||'',web:'',lat:la,lng:lo,dist:0,isLead:(state.leads||[]).some(l=>l.firma===name)});
+    });
+    karteZeigeErgebnisse(results, kmRadius);
   } catch(e) {
-    res.innerHTML = `<div style="text-align:center;padding:24px">
-      <div style="font-size:28px;margin-bottom:8px">❌</div>
-      <div style="color:var(--red);font-weight:700">Suche fehlgeschlagen</div>
-      <div style="color:var(--text3);font-size:12px;margin:8px 0">${e.message}</div>
-      <button onclick="karteSuche(${lat},${lng})" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer;margin-top:8px">🔄 Nochmal</button>
-    </div>`;
+    res.innerHTML = `<div style="text-align:center;padding:20px;color:var(--red)">❌ Suche fehlgeschlagen: ${e.message}<br/><button onclick="karteSuche(${lat},${lng})" style="margin-top:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer">🔄 Nochmal</button></div>`;
   }
 }
+
 
 function karteErkenne(name, tags) {
   const n = (name||'').toLowerCase();
