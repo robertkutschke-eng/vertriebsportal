@@ -994,94 +994,117 @@ async function karteSuche() {
   if (!_map) { karteInitMap(); await new Promise(r=>setTimeout(r,500)); }
   if (_map) { _map.setView([lat,lng], km<=5?13:km<=10?12:km<=25?11:10); setTimeout(()=>_map.invalidateSize(),200); }
 
-  // Clear search markers
+  // Remove old search markers
   _markers.forEach(m=>{if(m._ks&&_map)_map.removeLayer(m);});
   _markers = _markers.filter(m=>!m._ks);
 
-  // My position
-  if (_map) L.circleMarker([lat,lng],{radius:8,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:1,weight:3}).addTo(_map).bindPopup('📍 Mein Standort');
+  // My position marker
+  if (_map) L.circleMarker([lat,lng],{radius:9,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:1,weight:3}).addTo(_map).bindPopup('📍 Mein Standort').openPopup();
 
-  // Build Overpass query - simple and reliable
-  const r = km * 1000;
-  const parts = [];
+  const allResults = [];
+  const seen = new Set();
+  let suchBegriffe = [];
 
-  if (_aktiveKat.has('metzgerei')) {
-    parts.push(`node["shop"="butcher"](around:${r},${lat},${lng});`);
-    parts.push(`way["shop"="butcher"](around:${r},${lat},${lng});`);
-    parts.push(`node["name"~"Metzgerei|Fleischerei|Schlachterei",i](around:${r},${lat},${lng});`);
-  }
-  if (_aktiveKat.has('baeckerei')) {
-    parts.push(`node["shop"="bakery"](around:${r},${lat},${lng});`);
-    parts.push(`way["shop"="bakery"](around:${r},${lat},${lng});`);
-    parts.push(`node["name"~"Bäckerei|Konditorei|Backstube",i](around:${r},${lat},${lng});`);
-  }
-  if (_aktiveKat.has('fisch')) {
-    parts.push(`node["shop"="seafood"](around:${r},${lat},${lng});`);
-    parts.push(`node["shop"="fishmonger"](around:${r},${lat},${lng});`);
-    parts.push(`node["name"~"Fischerei|Fischhandel|Fischladen|Räucherei",i](around:${r},${lat},${lng});`);
-  }
-  if (_aktiveKat.has('gastro')) {
-    parts.push(`node["amenity"="restaurant"](around:${r},${lat},${lng});`);
-    parts.push(`way["amenity"="restaurant"](around:${r},${lat},${lng});`);
-    parts.push(`node["name"~"Gaststätte|Gasthof|Wirtshaus",i](around:${r},${lat},${lng});`);
-  }
-  if (_aktiveKat.has('hotel')) {
-    parts.push(`node["tourism"="hotel"](around:${r},${lat},${lng});`);
-    parts.push(`way["tourism"="hotel"](around:${r},${lat},${lng});`);
-    parts.push(`node["amenity"="canteen"](around:${r},${lat},${lng});`);
-  }
-  if (_aktiveKat.has('krankenhaus')) {
-    parts.push(`node["amenity"="hospital"](around:${r},${lat},${lng});`);
-    parts.push(`way["amenity"="hospital"](around:${r},${lat},${lng});`);
-    parts.push(`node["amenity"="clinic"](around:${r},${lat},${lng});`);
-    parts.push(`way["amenity"="clinic"](around:${r},${lat},${lng});`);
-    parts.push(`node["name"~"Krankenhaus|Klinikum|Klinik",i](around:${r},${lat},${lng});`);
-    parts.push(`way["name"~"Krankenhaus|Klinikum|Klinik",i](around:${r},${lat},${lng});`);
-  }
-  if (_aktiveKat.has('pflege')) {
-    parts.push(`node["amenity"="nursing_home"](around:${r},${lat},${lng});`);
-    parts.push(`way["amenity"="nursing_home"](around:${r},${lat},${lng});`);
-    parts.push(`node["amenity"="social_facility"](around:${r},${lat},${lng});`);
-    parts.push(`way["amenity"="social_facility"](around:${r},${lat},${lng});`);
-    parts.push(`node["name"~"Pflegeheim|Seniorenheim|Altenheim|AWO|Caritas|Diakonie|Vitanas|Korian|Azurit|Johanniter|Malteser",i](around:${r},${lat},${lng});`);
-    parts.push(`way["name"~"Pflegeheim|Seniorenheim|Altenheim|AWO|Caritas|Diakonie|Vitanas|Korian|Azurit|Johanniter|Malteser",i](around:${r},${lat},${lng});`);
-  }
-  if (_aktiveKat.has('reha')) {
-    parts.push(`node["amenity"="rehabilitation"](around:${r},${lat},${lng});`);
-    parts.push(`way["amenity"="rehabilitation"](around:${r},${lat},${lng});`);
-    parts.push(`node["name"~"Reha|Rehabilitation|Sanatorium|Kur",i](around:${r},${lat},${lng});`);
-    parts.push(`way["name"~"Reha|Rehabilitation|Sanatorium|Kur",i](around:${r},${lat},${lng});`);
+  // Build search terms per active category
+  const KAT_SUCHE = {
+    metzgerei:   ['Metzgerei','Fleischerei','Schlachterei'],
+    baeckerei:   ['Bäckerei','Konditorei'],
+    fisch:       ['Fischerei','Fischhandel','Fischladen'],
+    gastro:      ['Restaurant','Gaststätte','Gasthof'],
+    hotel:       ['Hotel','Catering'],
+    krankenhaus: ['Krankenhaus','Klinikum','Klinik'],
+    pflege:      ['Pflegeheim','Seniorenheim','Altenheim','AWO','Caritas Pflege','Diakonie Pflege','Vitanas','Korian'],
+    reha:        ['Rehaklinik','Rehabilitation'],
+  };
+
+  aktiv.forEach(k => {
+    (KAT_SUCHE[k.id]||[]).forEach(term => suchBegriffe.push({term, kat:k}));
+  });
+
+  // Calculate bounding box for search
+  const delta = km / 111;
+  const bbox = `${lat-delta},${lng-delta},${lat+delta},${lng+delta}`;
+
+  res.innerHTML = `<div style="text-align:center;padding:24px"><div class="spinner" style="margin:0 auto 12px"></div>
+    <div style="color:var(--blue);font-weight:700">Suche ${suchBegriffe.length} Begriffe…</div>
+    <div style="color:var(--text3);font-size:12px;margin-top:4px">${km} km · ${aktiv.map(k=>k.ico).join(' ')}</div></div>`;
+
+  // Search each term via Nominatim
+  for (let i = 0; i < suchBegriffe.length; i++) {
+    const {term, kat} = suchBegriffe[i];
+    try {
+      const url = `https://nominatim.openstreetmap.org/search` +
+        `?q=${encodeURIComponent(term)}` +
+        `&countrycodes=de` +
+        `&viewbox=${lng-delta},${lat+delta},${lng+delta},${lat-delta}` +
+        `&bounded=1` +
+        `&format=json&limit=50&addressdetails=1` +
+        `&accept-language=de`;
+
+      const r = await fetch(url, {headers:{'User-Agent':'VertriebPro/1.0','Accept-Language':'de'}});
+      const data = await r.json();
+
+      data.forEach(el => {
+        if (!el.lat||!el.lon) return;
+        const name = (el.display_name||'').split(',')[0].trim();
+        if (!name||name.length<2) return;
+
+        // Distance check
+        const dlat = (Number(el.lat)-lat)*111;
+        const dlng = (Number(el.lon)-lng)*71;
+        const dist = Math.sqrt(dlat*dlat+dlng*dlng);
+        if (dist > km) return;
+
+        const key = name.toLowerCase().replace(/\s+/g,'').slice(0,18);
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        const adr = el.address;
+        const adresse = [adr?.road, adr?.house_number, adr?.postcode, adr?.city||adr?.town||adr?.village].filter(Boolean).join(' ');
+        const isLead = (state.leads||[]).some(l=>l.firma===name);
+
+        // Map marker
+        if (_map) {
+          const icon = L.divIcon({
+            html:`<div style="background:${isLead?'#10b981':kat.col};width:26px;height:26px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,.4)">${isLead?'✓':kat.ico}</div>`,
+            iconSize:[26,26],iconAnchor:[13,13]
+          });
+          const m = L.marker([Number(el.lat),Number(el.lon)],{icon}).addTo(_map);
+          m._ks = true;
+          m.bindPopup(`<div style="min-width:190px;font-family:system-ui">
+            <b style="font-size:14px">${name}</b>
+            <div style="color:${kat.col};font-size:11px;font-weight:700;margin:3px 0">${kat.ico} ${kat.name}</div>
+            ${adresse?`<div style="font-size:11px;color:#555;margin-bottom:4px">📍 ${adresse}</div>`:''}
+            <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
+              <a href="https://www.google.de/search?q=${encodeURIComponent(name+' '+adresse)}" target="_blank"
+                style="background:#4285f422;color:#4285f4;border-radius:5px;padding:4px 8px;font-size:11px;text-decoration:none;font-weight:700">🔍 Google</a>
+              ${!isLead?`<button onclick="karteAddLead('${name.replace(/'/g,"\'")}','${kat.name}',${el.lat},${el.lon},'${adresse.replace(/'/g,"\'")}','')"
+                style="background:#1d4ed8;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:700">+ Lead</button>`
+                :'<span style="color:#10b981;font-size:11px;font-weight:700">✓ Lead</span>'}
+            </div>
+          </div>`);
+          _markers.push(m);
+        }
+
+        allResults.push({name, kat, adresse, tel:'', la:Number(el.lat), lo:Number(el.lon), dist, isLead});
+      });
+
+      // Update counter
+      if (res) res.innerHTML = `<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto 8px"></div>
+        <div style="color:var(--blue);font-weight:700">${i+1}/${suchBegriffe.length} · ${allResults.length} Betriebe gefunden…</div></div>`;
+
+      await new Promise(r=>setTimeout(r,100)); // rate limit
+
+    } catch(e) {
+      console.warn('Suche Fehler:', term, e.message);
+    }
   }
 
-  const query = `[out:json][timeout:40];(\n${parts.join('\n')}\n);out center tags;`;
-
-  res.innerHTML = `<div style="text-align:center;padding:24px"><div class="spinner" style="margin:0 auto 10px"></div><div style="color:var(--blue);font-weight:700">Suche ${km} km Umkreis…</div><div style="color:var(--text3);font-size:12px;margin-top:4px">${aktiv.map(k=>k.ico).join(' ')}</div></div>`;
-
-  try {
-    const resp = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: {'Content-Type':'application/x-www-form-urlencoded'},
-      body: 'data=' + encodeURIComponent(query)
-    });
-    if (!resp.ok) throw new Error(`Overpass Fehler: HTTP ${resp.status}`);
-    const data = await resp.json();
-    karteZeigeErgebnisse(data.elements||[], lat, lng, km);
-  } catch(e) {
-    // Fallback: Google Maps Link für manuelle Suche
-    res.innerHTML = `<div style="padding:20px;text-align:center">
-      <div style="font-size:28px;margin-bottom:8px">⚠️</div>
-      <div style="font-weight:700;color:var(--orange);margin-bottom:8px">Automatische Suche fehlgeschlagen</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${e.message}</div>
-      <div style="font-size:13px;margin-bottom:12px">Öffne Google Maps für manuelle Suche:</div>
-      ${aktiv.map(k=>`
-        <a href="https://www.google.de/maps/search/${encodeURIComponent(KAT_BEGRIFFE[k.id][0])}/@${lat},${lng},12z" target="_blank"
-          style="display:block;background:${k.col}22;color:${k.col};border:1px solid ${k.col}44;border-radius:8px;padding:10px;margin-bottom:6px;text-decoration:none;font-weight:700">
-          ${k.ico} ${k.name} auf Google Maps
-        </a>`).join('')}
-      <button onclick="karteSuche()" style="margin-top:12px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-weight:700;cursor:pointer">🔄 Nochmal versuchen</button>
-    </div>`;
-  }
+  // Sort by distance
+  allResults.sort((a,b)=>a.dist-b.dist);
+  karteZeigeErgebnisse(allResults, lat, lng, km);
 }
+
 
 function karteErkennKat(name, tags) {
   const n = (name||'').toLowerCase();
@@ -1143,16 +1166,12 @@ function karteZeigeErgebnisse(elements, myLat, myLng, km) {
   });
 
   if (!results.length) {
-    const aktiv = KARTE_KATS.filter(k=>_aktiveKat.has(k.id));
-    res.innerHTML = `<div style="text-align:center;padding:24px">
-      <div style="font-size:36px;margin-bottom:8px">🔍</div>
-      <div style="font-weight:700;margin-bottom:6px">Nichts gefunden im ${km} km Radius</div>
-      <div style="color:var(--text3);font-size:13px;margin-bottom:16px">Tipp: Radius vergrößern oder direkt bei Google suchen</div>
-      ${aktiv.map(k=>`
-        <a href="https://www.google.de/maps/search/${encodeURIComponent(KAT_BEGRIFFE[k.id][0])}/@${myLat},${myLng},12z" target="_blank"
-          style="display:block;background:${k.col}18;color:${k.col};border:1px solid ${k.col}33;border-radius:8px;padding:9px 12px;margin-bottom:5px;text-decoration:none;font-weight:700;font-size:13px">
-          ${k.ico} ${k.name} → Google Maps öffnen
-        </a>`).join('')}
+    res.innerHTML = `<div style="text-align:center;padding:32px">
+      <div style="font-size:40px;margin-bottom:10px">🔍</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px">Nichts gefunden im ${km} km Radius</div>
+      <div style="color:var(--text3);font-size:13px;margin-bottom:16px">Tipps:<br/>• Radius vergrößern<br/>• Anderen Ort eingeben<br/>• Andere Kategorien wählen</div>
+      <button onclick="karteSuche()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-weight:700;cursor:pointer;margin-right:8px">🔄 Nochmal</button>
+      <button onclick="karteOrtDialog()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer">✏️ Ort ändern</button>
     </div>`;
     return;
   }
