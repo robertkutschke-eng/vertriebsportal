@@ -2768,14 +2768,29 @@ function openBesuchForm(id) {
   const now = new Date();
   const defaultTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
-  // Get leads for autocomplete
-  const firmen = (state.leads||[]).map(l=>l.firma);
+  // Get leads for autocomplete - sorted by last contact
+  const leads = (state.leads||[]);
+  const firmen = leads.map(l=>l.firma);
 
   openSheet(`
     <div class="sheet-title">🏢 ${id?'Besuch bearbeiten':'Neuer Besuchsbericht'}</div>
 
+    <!-- Lead Schnellauswahl -->
+    <div style="background:var(--input);border:1px solid var(--blue);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="color:var(--blue);font-size:12px;font-weight:700;margin-bottom:8px">⚡ Lead direkt auswählen</div>
+      <div style="display:flex;gap:8px">
+        <select id="bf-lead-select" onchange="besuchFillFromLead(this.value)"
+          style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+          <option value="">-- Lead wählen oder Firma eintippen --</option>
+          ${leads.sort((a,b)=>(b.letzterKontakt||'').localeCompare(a.letzterKontakt||'')).map(l=>`<option value="${l.id}">${l.firma}${l.ort?' · '+l.ort:''}</option>`).join('')}
+        </select>
+      </div>
+      <div id="bf-lead-info" style="margin-top:8px;display:none"></div>
+    </div>
+
     <div class="field"><label>Firma / Kunde *</label>
-      <input id="bf-firma" value="${b.firma||''}" placeholder="z.B. Engel GmbH Blankenheim" list="bf-firmen-list"/>
+      <input id="bf-firma" value="${b.firma||''}" placeholder="z.B. Engel GmbH Blankenheim"
+        oninput="besuchCheckLead(this.value)" list="bf-firmen-list"/>
       <datalist id="bf-firmen-list">${firmen.map(f=>`<option value="${f}">`).join('')}</datalist>
     </div>
 
@@ -2788,6 +2803,16 @@ function openBesuchForm(id) {
 
     <div class="field"><label>Gesprächspartner</label>
       <input id="bf-kontakt" value="${b.kontakt||''}" placeholder="Name, Funktion"/></div>
+
+    <!-- GPS Standort -->
+    <div id="bf-gps-box" style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">📍</span>
+      <div style="flex:1">
+        <div id="bf-gps-status" style="font-size:12px;color:var(--text3)">Standort wird ermittelt…</div>
+        <div id="bf-gps-coords" style="font-size:11px;color:var(--text3)"></div>
+      </div>
+      <button onclick="besuchGetGPS()" style="background:var(--blue-dark);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">📍 GPS</button>
+    </div>
 
     <div class="field" style="border:1px solid #a855f744;border-radius:10px;padding:12px;margin-bottom:14px">
       <label style="color:var(--purple)">🏭 Maschinenpark & Wettbewerb</label>
@@ -2827,8 +2852,11 @@ function saveBesuch(id) {
     firma: g('firma'), datum: g('datum'), uhrzeit: g('uhrzeit'),
     kontakt: g('kontakt'), maschinenpark: g('maschinenpark'),
     interesse: g('interesse'), notizen: g('notizen'),
-    naechsteSchritte: g('naechste')
+    naechsteSchritte: g('naechste'),
+    lat: _besuchGPSData?.lat || null,
+    lng: _besuchGPSData?.lng || null
   };
+  _besuchGPSData = null; // reset
 
   if (!state.besuche) state.besuche = [];
   if (id) {
@@ -2869,6 +2897,68 @@ function deleteBesuch(id) {
     renderBesuche();
   }
 }
+
+function besuchFillFromLead(leadId) {
+  if (!leadId) return;
+  const l = (state.leads||[]).find(x=>x.id===leadId);
+  if (!l) return;
+  // Fill firma
+  const firmaEl = document.getElementById('bf-firma');
+  if (firmaEl) firmaEl.value = l.firma;
+  // Fill kontakt
+  const kontaktEl = document.getElementById('bf-kontakt');
+  if (kontaktEl && l.kontakt) kontaktEl.value = l.kontakt;
+  // Show lead info
+  const info = document.getElementById('bf-lead-info');
+  if (info) {
+    info.style.display = 'block';
+    info.innerHTML = `<div style="background:#10b98122;border:1px solid #10b98144;border-radius:8px;padding:8px 10px;font-size:12px">
+      <div style="font-weight:700;color:var(--green)">✓ Lead gefunden: ${l.firma}</div>
+      <div style="color:var(--text3);margin-top:2px">Status: ${l.status} · ${l.branche||''}${l.telefon?' · 📞 '+l.telefon:''}</div>
+      ${l.strasse||l.ort?`<div style="color:var(--text3)">📍 ${[l.strasse,l.plz,l.ort].filter(Boolean).join(', ')}</div>`:''}
+    </div>`;
+  }
+}
+
+function besuchCheckLead(firma) {
+  if (!firma || firma.length < 3) return;
+  const l = (state.leads||[]).find(x=>x.firma.toLowerCase().includes(firma.toLowerCase()));
+  const info = document.getElementById('bf-lead-info');
+  if (l && info) {
+    info.style.display = 'block';
+    info.innerHTML = `<div style="background:#10b98122;border:1px solid #10b98144;border-radius:8px;padding:8px 10px;font-size:12px;margin-top:6px">
+      <div style="font-weight:700;color:var(--green)">✓ Lead gefunden: ${l.firma}</div>
+      <div style="color:var(--text3)">Status: ${l.status} · ${l.branche||''}</div>
+    </div>`;
+  }
+}
+
+let _besuchGPSData = null;
+function besuchGetGPS() {
+  const statusEl = document.getElementById('bf-gps-status');
+  if (!statusEl) return;
+  statusEl.textContent = '⏳ GPS wird ermittelt…';
+  if (!navigator.geolocation) { statusEl.textContent = '❌ GPS nicht verfügbar'; return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    _besuchGPSData = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+    statusEl.textContent = '✅ Standort erfasst';
+    statusEl.style.color = 'var(--green)';
+    const coordsEl = document.getElementById('bf-gps-coords');
+    if (coordsEl) coordsEl.textContent = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+    // Try to get address via reverse geocoding
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`,
+      {headers:{'Accept-Language':'de'}})
+      .then(r=>r.json())
+      .then(d=>{
+        const adr = d.address;
+        const text = [adr.road, adr.house_number, adr.postcode, adr.city||adr.town||adr.village].filter(Boolean).join(', ');
+        if (statusEl) statusEl.textContent = `✅ ${text}`;
+      }).catch(()=>{});
+  }, () => {
+    if (statusEl) statusEl.textContent = '❌ GPS-Berechtigung fehlt';
+  }, {timeout:8000});
+}
+
 
 function genWochenbericht() {
   const besuche = state.besuche || [];
