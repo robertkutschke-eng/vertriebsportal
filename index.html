@@ -131,9 +131,16 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
 <!-- Firebase Setup -->
 <div id="firebase-setup">
   <div class="setup-card">
-    <div style="font-size:36px;margin-bottom:12px">🔥</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div style="font-size:36px">🔥</div>
+      <button onclick="document.getElementById('firebase-setup').style.display='none'" 
+        style="background:var(--border);border:none;color:var(--text3);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">
+        ✕ Schließen
+      </button>
+    </div>
     <h2 style="color:var(--text);font-size:22px;margin-bottom:8px">Firebase einrichten</h2>
-    <p style="color:var(--text3);font-size:13px;line-height:1.6;margin-bottom:20px">Einmalig – danach synchronisieren sich iPhone, Tablet und PC automatisch.</p>
+    <p style="color:var(--text3);font-size:13px;line-height:1.6;margin-bottom:6px">Einmalig – danach synchronisieren sich iPhone, Tablet und PC automatisch.</p>
+    <p style="color:var(--green);font-size:12px;margin-bottom:20px">✅ Optional. Ohne Firebase läuft die App sofort lokal im Browser.</p>
     <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:20px">
       <div class="setup-step"><div class="step-num">1</div><p style="color:var(--text3);font-size:13px">Gehe zu <a href="https://console.firebase.google.com" style="color:var(--blue)">console.firebase.google.com</a> → Projekt <b style="color:var(--text)">Vertrieb AS</b> öffnen</p></div>
       <div class="setup-step"><div class="step-num">2</div><p style="color:var(--text3);font-size:13px">Zahnrad ⚙️ → Projekteinstellungen → Web-App <b style="color:var(--text)">&lt;/&gt;</b> → firebaseConfig kopieren</p></div>
@@ -158,7 +165,12 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
         <div class="logo-sub">powered by Claude AI</div>
       </div>
     </div>
-    <div id="header-right"></div>
+    <div id="header-right">
+  <button onclick="document.getElementById('firebase-setup').style.display='block'" 
+    style="background:var(--border);border:none;color:var(--text3);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">
+    🔥 Firebase
+  </button>
+</div>
   </div>
 
   <!-- Screens -->
@@ -173,6 +185,7 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
   <div id="screen-stats" class="screen content"></div>
   <div id="screen-gebraucht" class="screen"></div>
   <div id="screen-anfragen" class="screen"></div>
+  <div id="screen-kalender" class="screen" style="overflow-y:auto;padding-bottom:80px"></div>
 
   <!-- Bottom Nav -->
   <nav id="bottom-nav">
@@ -217,6 +230,10 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.5 2.5c0 1.5-1.5 7-1.5 7h-2C10.5 9.5 9 4 9 2.5a2.5 2.5 0 0 1 5 0zM12 13a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 8l1.5-6h11L19 21H5z"/></svg>
       Anfragen
       <span class="nav-badge" id="badge-anfragen" style="display:none">0</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('kalender')" id="nav-kalender">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+      Kalender
     </button>
   </nav>
 </div>
@@ -408,6 +425,9 @@ function renderLeadList(){
       </div>`:''}
       ${l.email?`<a href="mailto:${l.email}?subject=Ihre Anfrage&body=Sehr geehrte/r ${encodeURIComponent(l.kontakt||'')}" class="btn btn-sm btn-email btn-full" style="text-decoration:none;margin-bottom:8px">✉️ E-Mail: ${l.email}</a>`:''}
       ${l.naechsterSchritt?`<div style="color:var(--blue);font-size:13px;margin-top:6px">➡️ ${l.naechsterSchritt}</div>`:''}
+      <button onclick="openTelefonatNotiz('${l.id}')" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+        📞 Telefonat-Notiz eintragen
+      </button>
     </div>`).join(''):`<div style="text-align:center;padding:40px;color:var(--text3)">Keine Leads gefunden</div>`;
 }
 
@@ -1340,6 +1360,302 @@ function prefillAnfrageForm(data) {
 }
 
 
+
+// ═══════════════════════════════════════════════════════
+// TELEFONAT NOTIZ & KALENDER
+// ═══════════════════════════════════════════════════════
+
+function openTelefonatNotiz(leadId) {
+  const l = state.leads.find(x => x.id === leadId);
+  if (!l) return;
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0,5);
+  const today = heute();
+
+  openSheet(`
+    <div class="sheet-title">📞 Telefonat mit ${l.firma}</div>
+    <div style="background:#f59e0b22;border:1px solid #f59e0b44;border-radius:10px;padding:10px;margin-bottom:16px;font-size:13px;color:#f59e0b;font-weight:600">
+      ⏱️ ${today} · ${timeStr} Uhr
+    </div>
+
+    <div class="field">
+      <label>Was wurde besprochen? *</label>
+      <textarea id="tn-notiz" rows="4" placeholder="z.B. Kunde interessiert an GRAEF Master 3020. Budget vorhanden. Will Angebot bis Ende Woche…" 
+        style="font-size:16px" autofocus></textarea>
+    </div>
+
+    <div class="field">
+      <label>Nächster Schritt</label>
+      <input id="tn-step" value="${l.naechsterSchritt||''}" placeholder="z.B. Angebot zusenden, Demo vereinbaren…"/>
+    </div>
+
+    <div class="field">
+      <label>Status aktualisieren</label>
+      <select id="tn-status">
+        ${['Neu','Kontaktiert','Qualifiziert','Angebot','In Verhandlung','Gewonnen','Verloren'].map(s=>`<option ${l.status===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+
+    <div style="background:var(--input);border:1px solid var(--blue);border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="color:var(--blue);font-size:13px;font-weight:700;margin-bottom:10px">📅 Folgetermin / Erinnerung</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="checkbox" id="tn-reminder-check" checked style="width:20px;height:20px;accent-color:var(--blue)"/>
+        <div style="flex:1">
+          <input type="date" id="tn-reminder-date" value="${(() => { const d=new Date(); d.setDate(d.getDate()+3); return d.toISOString().split('T')[0]; })()}"
+            style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:15px"/>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
+      <button class="btn btn-full" style="background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none" 
+        onclick="saveTelefonatNotiz('${leadId}')">💾 Speichern</button>
+    </div>`);
+
+  setTimeout(() => document.getElementById('tn-notiz')?.focus(), 300);
+}
+
+function saveTelefonatNotiz(leadId) {
+  const notiz = document.getElementById('tn-notiz')?.value?.trim();
+  if (!notiz) { alert('Bitte Notiz eingeben'); return; }
+  const step = document.getElementById('tn-step')?.value || '';
+  const status = document.getElementById('tn-status')?.value || '';
+  const reminderCheck = document.getElementById('tn-reminder-check')?.checked;
+  const reminderDate = document.getElementById('tn-reminder-date')?.value;
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0,5);
+
+  // Update lead
+  state.leads = state.leads.map(l => {
+    if (l.id !== leadId) return l;
+    const oldNotizen = l.notizen || '';
+    const newEintrag = `[${heute()} ${timeStr}] ${notiz}`;
+    return {
+      ...l,
+      status,
+      naechsterSchritt: step,
+      letzterKontakt: heute(),
+      notizen: oldNotizen ? `${newEintrag}
+---
+${oldNotizen}` : newEintrag
+    };
+  });
+  save('leads');
+
+  // Auto Aufgabe
+  if (reminderCheck && reminderDate) {
+    const aufg = {
+      id: 'tel-' + Date.now(),
+      titel: `📞 Nachfassen: ${state.leads.find(l=>l.id===leadId)?.firma||''}`,
+      beschreibung: `Telefonat vom ${heute()}: ${notiz.slice(0,100)}${notiz.length>100?'...':''}`,
+      faellig: reminderDate, prioritaet: 'Hoch', erledigt: false,
+      bezug: state.leads.find(l=>l.id===leadId)?.firma||'',
+      typ: 'Nachfass', autoErstellt: true,
+      kanal: state.leads.find(l=>l.id===leadId)?.email ? 'email' : null
+    };
+    state.aufgaben = [...(state.aufgaben||[]), aufg];
+    save('aufgaben');
+  }
+  updateBadges();
+  closeSheet();
+  renderLeads();
+  alert(`✅ Notiz gespeichert!${reminderCheck ? '\n⏰ Erinnerung: '+reminderDate : ''}`);
+}
+
+// ═══════════════════════════════════════════════════════
+// KALENDER
+// ═══════════════════════════════════════════════════════
+
+function renderKalender() {
+  const el = document.getElementById('screen-kalender');
+  if (!el) return;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  renderKalenderMonth(el, year, month);
+}
+
+function renderKalenderMonth(el, year, month) {
+  const aufgaben = state.aufgaben || [];
+  const heute_str = heute();
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const dayNames = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+
+  // Get all days in month
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7; // Monday = 0
+
+  // Get events for this month
+  const monthStr = `${year}-${String(month+1).padStart(2,'0')}`;
+  const monthEvents = aufgaben.filter(t => t.faellig && t.faellig.startsWith(monthStr));
+
+  let calHtml = '';
+  // Day headers
+  calHtml += `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">`;
+  dayNames.forEach(d => {
+    calHtml += `<div style="text-align:center;font-size:11px;font-weight:700;color:var(--text3);padding:4px">${d}</div>`;
+  });
+  calHtml += '</div>';
+
+  // Calendar grid
+  calHtml += `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`;
+  // Empty cells before first day
+  for (let i = 0; i < startDow; i++) {
+    calHtml += `<div></div>`;
+  }
+  // Days
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dayEvents = monthEvents.filter(t => t.faellig === dateStr);
+    const isToday = dateStr === heute_str;
+    const isPast = dateStr < heute_str;
+    const hasOverdue = dayEvents.some(t => !t.erledigt && isPast);
+
+    calHtml += `<div onclick="openDayEvents('${dateStr}')" style="
+      min-height:44px;background:${isToday?'var(--blue-dark)':dayEvents.length?'var(--card)':'transparent'};
+      border:1px solid ${isToday?'var(--blue)':dayEvents.length?'var(--border)':'transparent'};
+      border-radius:8px;padding:4px;cursor:pointer;position:relative">
+      <div style="text-align:center;font-size:13px;font-weight:${isToday?'800':'400'};
+        color:${isToday?'#fff':isPast?'var(--text4)':'var(--text)'}">
+        ${day}
+      </div>
+      ${dayEvents.slice(0,2).map(t=>`
+        <div style="background:${t.erledigt?'#10b98133':hasOverdue?'#ef444433':'#3b82f633'};
+          border-radius:3px;padding:1px 3px;font-size:9px;
+          color:${t.erledigt?'#10b981':hasOverdue?'#ef4444':'#3b82f6'};
+          overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:1px">
+          ${t.titel.replace(/[📞📄⏰]/g,'').slice(0,12)}
+        </div>`).join('')}
+      ${dayEvents.length > 2 ? `<div style="font-size:9px;color:var(--text3);text-align:center">+${dayEvents.length-2}</div>` : ''}
+    </div>`;
+  }
+  calHtml += '</div>';
+
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <button onclick="changeMonth(-1)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer">‹</button>
+        <div>
+          <div style="font-size:18px;font-weight:800;text-align:center">${monthNames[month]}</div>
+          <div style="font-size:13px;color:var(--text3);text-align:center">${year}</div>
+        </div>
+        <button onclick="changeMonth(1)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer">›</button>
+      </div>
+      ${calHtml}
+
+      <!-- Upcoming events -->
+      <div style="margin-top:20px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text)">📋 Nächste Termine</div>
+        ${(state.aufgaben||[]).filter(t=>!t.erledigt&&t.faellig>=heute_str).sort((a,b)=>a.faellig.localeCompare(b.faellig)).slice(0,5).map(t=>`
+          <div class="card" style="margin-bottom:8px;border-color:${t.faellig===heute_str?'#f59e0b44':'var(--border)'}">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:700">${t.titel}</div>
+                <div style="font-size:11px;color:var(--text3)">${t.bezug||''}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:12px;font-weight:700;color:${t.faellig===heute_str?'#f59e0b':'var(--blue)'}">${t.faellig}</div>
+                <button onclick="toggleAufgabe('${t.id}');renderKalender()" style="background:#10b98122;border:none;color:#10b981;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-top:4px">✓ Erledigt</button>
+              </div>
+            </div>
+          </div>`).join('')}
+        ${!(state.aufgaben||[]).filter(t=>!t.erledigt&&t.faellig>=heute_str).length ?
+          '<div style="text-align:center;color:var(--text3);padding:20px">Keine offenen Termine 🎉</div>' : ''}
+      </div>
+
+      <!-- Add event FAB area -->
+      <button class="btn btn-primary btn-full" onclick="openNeuerTermin()" style="margin-top:16px">
+        + Neuen Termin anlegen
+      </button>
+    </div>`;
+
+  // Store current month/year for navigation
+  el._month = month;
+  el._year = year;
+}
+
+let _kalMonth = new Date().getMonth();
+let _kalYear = new Date().getFullYear();
+
+function changeMonth(dir) {
+  _kalMonth += dir;
+  if (_kalMonth < 0) { _kalMonth = 11; _kalYear--; }
+  if (_kalMonth > 11) { _kalMonth = 0; _kalYear++; }
+  const el = document.getElementById('screen-kalender');
+  if (el) renderKalenderMonth(el, _kalYear, _kalMonth);
+}
+
+function openDayEvents(dateStr) {
+  const events = (state.aufgaben||[]).filter(t => t.faellig === dateStr);
+  if (!events.length) {
+    // Open new event form for this date
+    openNeuerTermin(dateStr);
+    return;
+  }
+  openSheet(`
+    <div class="sheet-title">📅 ${dateStr}</div>
+    ${events.map(t => `
+      <div class="card" style="margin-bottom:10px;border-color:${t.erledigt?'#10b98133':'var(--border)'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:15px;${t.erledigt?'text-decoration:line-through;opacity:.6':''}">${t.titel}</div>
+            ${t.beschreibung?`<div style="color:var(--text3);font-size:13px;margin-top:4px">${t.beschreibung}</div>`:''}
+            ${t.bezug?`<div style="color:var(--blue);font-size:12px;margin-top:4px">🏢 ${t.bezug}</div>`:''}
+          </div>
+          <button onclick="toggleAufgabe('${t.id}');closeSheet();renderKalender()" 
+            style="background:${t.erledigt?'#10b98122':'#3b82f622'};border:1px solid ${t.erledigt?'#10b98144':'#3b82f644'};
+            color:${t.erledigt?'#10b981':'var(--blue)'};border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">
+            ${t.erledigt?'↩ Öffnen':'✓ Erledigt'}
+          </button>
+        </div>
+      </div>`).join('')}
+    <button class="btn btn-primary btn-full" onclick="closeSheet();openNeuerTermin('${dateStr}')">+ Termin hinzufügen</button>
+  `);
+}
+
+function openNeuerTermin(prefillDate) {
+  const erinnerDatum = prefillDate || (() => { const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0]; })();
+  openSheet(`
+    <div class="sheet-title">📅 Neuer Termin</div>
+    <div class="field"><label>Titel *</label>
+      <input id="kt-titel" placeholder="z.B. Demo bei Müller GmbH, Anruf Weber…"/></div>
+    <div class="field"><label>Datum *</label>
+      <input type="date" id="kt-datum" value="${erinnerDatum}"/></div>
+    <div class="field"><label>Firma / Bezug</label>
+      <input id="kt-bezug" placeholder="z.B. Müller GmbH"/></div>
+    <div class="field"><label>Beschreibung</label>
+      <textarea id="kt-beschreibung" rows="3" placeholder="Was ist geplant?"></textarea></div>
+    <div class="field"><label>Priorität</label>
+      <select id="kt-prioritaet"><option>Hoch</option><option selected>Mittel</option><option>Niedrig</option></select></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
+      <button class="btn btn-primary btn-full" onclick="saveNeuerTermin()">📅 Speichern</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('kt-titel')?.focus(), 300);
+}
+
+function saveNeuerTermin() {
+  const titel = document.getElementById('kt-titel')?.value?.trim();
+  const datum = document.getElementById('kt-datum')?.value;
+  if (!titel || !datum) { alert('Bitte Titel und Datum eingeben'); return; }
+  const aufg = {
+    id: 'kal-' + Date.now(),
+    titel, faellig: datum,
+    bezug: document.getElementById('kt-bezug')?.value || '',
+    beschreibung: document.getElementById('kt-beschreibung')?.value || '',
+    prioritaet: document.getElementById('kt-prioritaet')?.value || 'Mittel',
+    erledigt: false, typ: 'Termin', autoErstellt: false
+  };
+  state.aufgaben = [...(state.aufgaben||[]), aufg];
+  save('aufgaben');
+  updateBadges();
+  closeSheet();
+  renderKalender();
+}
+
+
 // ═══════════════════════════════════════════════════════
 // GEBRAUCHTMASCHINEN
 // ═══════════════════════════════════════════════════════
@@ -1778,21 +2094,14 @@ function anfrageZuAngebot(id) {
 const renders={
   dashboard:renderDashboard,leads:renderLeads,angebote:renderAngebote,
   aufgaben:renderAufgaben,karte:renderKarte,ki:renderKI,
-  stats:renderStats,katalog:renderKatalog,youtube:renderYoutube,gebraucht:renderGebraucht,anfragen:renderAnfragen
+  stats:renderStats,katalog:renderKatalog,youtube:renderYoutube,gebraucht:renderGebraucht,anfragen:renderAnfragen,kalender:renderKalender
 };
 
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
 async function init(){
-  const hasCfg=!!localStorage.getItem('vp_cfg');
-  if(!hasCfg){
-    document.getElementById('splash').style.display='none';
-    document.getElementById('firebase-setup').style.display='block';
-    return;
-  }
-
-  // Load data
+  // App startet IMMER sofort - Firebase ist optional
   const load=async()=>{
     const [l,a,t,v,anf]=await Promise.all([DB.get('leads'),DB.get('angebote'),DB.get('aufgaben'),DB.get('videos'),DB.get('anfragen')]);
     state.leads=l||DEMO_LEADS;
@@ -1817,11 +2126,19 @@ async function init(){
     updateBadges();
   };
 
-  if(window.FBDB)await load();
-  else{
-    window.addEventListener('fb-ready',load);
-    setTimeout(load,3000); // fallback: use localStorage after 3s
-  }
+  // Start immediately with localStorage, Firebase syncs when ready
+  await load();
+  // Firebase upgrade when available
+  window.addEventListener('fb-ready', async()=>{
+    const [l,a,t,v,anf]=await Promise.all([DB.get('leads'),DB.get('angebote'),DB.get('aufgaben'),DB.get('videos'),DB.get('anfragen')]);
+    if(l)state.leads=l;
+    if(a)state.angebote=a;
+    if(t)state.aufgaben=t;
+    if(v)state.videos=v;
+    if(anf)state.anfragen=anf;
+    renderDashboard();
+    updateBadges();
+  });
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
