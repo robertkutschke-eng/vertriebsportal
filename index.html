@@ -181,7 +181,7 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
   <div id="screen-karte" class="screen" style="padding:12px;padding-bottom:80px"></div>
   <div id="screen-katalog" class="screen"></div>
   <div id="screen-youtube" class="screen"></div>
-  <div id="screen-ki" class="screen" style="padding:0;flex-direction:column;overflow:hidden"></div>
+  <div id="screen-ki" class="screen" style="padding:0;flex-direction:column"></div>
   <div id="screen-stats" class="screen content"></div>
   <div id="screen-gebraucht" class="screen"></div>
   <div id="screen-anfragen" class="screen"></div>
@@ -425,6 +425,7 @@ function renderLeadList(){
       </div>`:''}
       ${l.email?`<a href="mailto:${l.email}?subject=Ihre Anfrage&body=Sehr geehrte/r ${encodeURIComponent(l.kontakt||'')}" class="btn btn-sm btn-email btn-full" style="text-decoration:none;margin-bottom:8px">✉️ E-Mail: ${l.email}</a>`:''}
       ${l.naechsterSchritt?`<div style="color:var(--blue);font-size:13px;margin-top:6px">➡️ ${l.naechsterSchritt}</div>`:''}
+      ${l.notizen?`<div style="background:var(--input);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12px;color:var(--text3);line-height:1.5;max-height:80px;overflow:hidden">${l.notizen.slice(0,200)}${l.notizen.length>200?'…':''}</div>`:''}
       <button onclick="openTelefonatNotiz('${l.id}')" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
         📞 Telefonat-Notiz eintragen
       </button>
@@ -504,6 +505,10 @@ function renderAngebote(){
               ${a.abschlussDatum?`<div style="color:var(--orange);font-size:11px;margin-top:3px">📅 ${a.abschlussDatum}</div>`:''}
             </div>
             <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteAngebot('${a.id}')">🗑</button>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:6px">
+            <button onclick="event.stopPropagation();angebotZuLead('${a.id}')" class="btn btn-sm btn-primary" style="flex:1">👤 Als Lead</button>
+            <button onclick="event.stopPropagation();showTab('ki');setTimeout(()=>{const i=document.getElementById('ki-input');if(i){i.value='Hilf mir das Angebot ${a.titel.replace(/'/g,"\\'").replace(/"/g,"'")} bei ${a.firma} abzuschließen';i.focus();}},400)" class="btn btn-sm btn-ai" style="flex:1">🤖 KI-Tipp</button>
           </div>
         </div>`).join('')}
       </div>`;
@@ -860,6 +865,7 @@ function showLeadsOnMap(){
 // ═══════════════════════════════════════════════════════
 function renderKI(){
   const el=document.getElementById('screen-ki');
+  el.style.cssText='display:flex;flex-direction:column;height:calc(100vh - env(safe-area-inset-top) - 64px);overflow:hidden;padding:0';
   el.innerHTML=`
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
       <div style="font-size:18px;font-weight:800">🤖 KI-Assistent</div>
@@ -2086,6 +2092,41 @@ function anfrageZuAngebot(id) {
   showTab('angebote');
 }
 
+
+
+function angebotZuLead(id) {
+  const a = state.angebote.find(x => x.id === id);
+  if (!a) return;
+  // Check if lead already exists
+  const exists = state.leads.find(l => l.firma === a.firma);
+  if (exists) {
+    alert(`Lead "${a.firma}" existiert bereits!`);
+    showTab('leads');
+    return;
+  }
+  const d = new Date(); d.setDate(d.getDate()+3);
+  const erinnerDatum = d.toISOString().split('T')[0];
+  const newLead = {
+    id: Date.now()+'', firma: a.firma, kontakt: a.kontakt||'',
+    email:'', telefon:'', branche:'',
+    status:'Angebot', prioritaet:'Hoch',
+    naechsterSchritt: `Angebot "${a.titel}" nachfassen`,
+    notizen: `Angebot vom ${a.erstellt}: ${a.titel} · €${a.wert}`,
+    erstellt: heute(), letzterKontakt: heute()
+  };
+  state.leads = [...state.leads, newLead];
+  const aufg = {
+    id:'nf-'+Date.now(), titel:`📄 Nachfassen: ${a.firma}`,
+    beschreibung:`Angebot ${a.titel} · €${a.wert} nachfassen`,
+    faellig: erinnerDatum, prioritaet:'Hoch', erledigt:false,
+    bezug: a.firma, typ:'Nachfass', autoErstellt:true
+  };
+  state.aufgaben = [...(state.aufgaben||[]), aufg];
+  save('leads'); save('aufgaben');
+  updateBadges();
+  alert(`✅ Lead "${a.firma}" angelegt!\n⏰ Erinnerung: ${erinnerDatum}`);
+  showTab('leads');
+}
 
 // ═══════════════════════════════════════════════════════
 // RENDERS MAP
