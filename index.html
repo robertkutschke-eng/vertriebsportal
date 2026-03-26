@@ -357,7 +357,11 @@ function showTab(tab){
   state.activeTab=tab;
   renders[tab]&&renders[tab]();
   // init map only when visible
-  if(tab==='karte')setTimeout(()=>{karteInitMap();if(_map)_map.invalidateSize();},200);
+  if(tab==='karte'){
+    if(!_karteRendered){_karteRendered=true;renders[tab]&&renders[tab]();}
+    setTimeout(()=>{karteInitMap();if(_map)_map.invalidateSize();},200);
+    return;
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -867,7 +871,7 @@ function renderKarte() {
     <div id="karte-map" style="height:260px;flex-shrink:0"></div>
     <div id="karte-results" style="flex:1;overflow-y:auto;padding-bottom:80px"></div>`;
 
-  _karteAktiv = new Set(KARTE_KATS.map(k=>k.id));
+  if(!_karteAktiv.size) _karteAktiv = new Set(KARTE_KATS.map(k=>k.id));
   setTimeout(karteInitMap, 100);
 }
 
@@ -899,6 +903,7 @@ const KARTE_KATS = [
 ];
 
 let _karteAktiv = new Set();
+let _karteRendered = false;
 
 function karteToggle(id) {
   if (_karteAktiv.has(id)) _karteAktiv.delete(id);
@@ -1068,14 +1073,66 @@ async function karteSuche(lat, lng) {
   // Sort by distance
   allResults.sort((a,b)=>a.dist-b.dist);
 
-  if (!allResults.length) {
-    // Fallback: try Overpass for at least hospitals/nursing homes
-    res.innerHTML = `<div style="text-align:center;padding:16px;color:var(--orange)">Nominatim leer – versuche Overpass…</div>`;
-    await karteSucheOverpass(lat, lng, kmRadius);
-    return;
-  }
-
+  // Show Nominatim results immediately
   karteZeigeErgebnisse(allResults, kmRadius);
+  
+  // Additionally load Overpass results in background and merge
+  karteSucheOverpassMerge(lat, lng, kmRadius, allResults, seen);
+}
+
+async function karteSucheOverpassMerge(lat, lng, kmRadius, existing, seen) {
+  // Run silently in background, merge new results
+  const mRadius = kmRadius * 1000;
+  const aktiv = KARTE_KATS.filter(k => _karteAktiv.has(k.id));
+  const parts = [];
+  aktiv.forEach(k => {
+    k.osm.forEach(([key,val]) => {
+      parts.push(`node["${key}"="${val}"](around:${mRadius},${lat},${lng});`);
+      parts.push(`way["${key}"="${val}"](around:${mRadius},${lat},${lng});`);
+    });
+    // Also keyword search for Pflegeheime etc
+    k.namen.slice(0,2).forEach(n => {
+      parts.push(`node["name"~"${n}",i](around:${mRadius},${lat},${lng});`);
+      parts.push(`way["name"~"${n}",i](around:${mRadius},${lat},${lng});`);
+    });
+  });
+  if (!parts.length) return;
+  try {
+    const query = `[out:json][timeout:30];(${parts.join('')});out center tags;`;
+    const r = await fetch('https://overpass-api.de/api/interpreter', {
+      method:'POST', body:'data='+encodeURIComponent(query)
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    let newCount = 0;
+    (data.elements||[]).forEach(el => {
+      const la = el.lat||el.center?.lat, lo = el.lon||el.center?.lon;
+      if (!la||!lo) return;
+      const name = (el.tags?.name||'').trim();
+      if (!name||name.length<2) return;
+      const key = name.toLowerCase().replace(/\s/g,'').slice(0,20);
+      if (seen.has(key)) return;
+      seen.add(key);
+      const kat = karteErkenne(name, el.tags||{});
+      if (!kat||!_karteAktiv.has(kat.id)) return;
+      const adresse = [el.tags?.['addr:street'],el.tags?.['addr:housenumber'],el.tags?.['addr:postcode'],el.tags?.['addr:city']].filter(Boolean).join(' ');
+      const isLead = (state.leads||[]).some(l=>l.firma===name);
+      existing.push({name,kat,adresse,tel:el.tags?.phone||'',web:'',lat:la,lng:lo,dist:0,isLead});
+      // Add marker
+      if (_map) {
+        const icon = L.divIcon({
+          html:`<div style="background:${isLead?'#10b981':kat.col};width:26px;height:26px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,.4)">${isLead?'✓':kat.ico}</div>`,
+          iconSize:[26,26],iconAnchor:[13,13]
+        });
+        const m = L.marker([la,lo],{icon}).addTo(_map);
+        m._ks = true;
+        m.bindPopup(`<div style="min-width:180px"><b>${name}</b><br><span style="color:${kat.col};font-size:11px">${kat.ico} ${kat.name}</span>${adresse?`<br><span style="font-size:11px">📍 ${adresse}</span>`:''}<br><div style="display:flex;gap:5px;margin-top:6px"><a href="https://www.google.de/search?q=${encodeURIComponent(name)}" target="_blank" style="background:#4285f422;color:#4285f4;border-radius:5px;padding:3px 7px;font-size:11px;text-decoration:none">🔍</a>${!isLead?`<button onclick="karteAddLead('${name.replace(/'/g,"\'")}','${kat.name}',${la},${lo},'${adresse.replace(/'/g,"\'")}','')" style="background:#1d4ed8;color:#fff;border:none;border-radius:5px;padding:3px 7px;font-size:11px;cursor:pointer">+Lead</button>`:''}</div></div>`);
+        _markers.push(m);
+        newCount++;
+      }
+    });
+    if (newCount > 0) karteZeigeErgebnisse(existing, kmRadius);
+  } catch(e) { console.warn('Overpass merge:', e.message); }
 }
 
 async function karteSucheOverpass(lat, lng, kmRadius) {
