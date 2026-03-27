@@ -117,6 +117,32 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
 .leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.8) contrast(1.1)}
 .custom-pin{width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;font-size:14px}
 .pin-inner{transform:rotate(45deg)}
+
+.pdf-upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  background: var(--input);
+  transition: border-color .2s;
+}
+.pdf-upload-zone:hover { border-color: var(--blue); }
+.pdf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #3b82f622;
+  color: var(--blue);
+  border: 1px solid #3b82f644;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -439,6 +465,7 @@ function renderLeadList(){
       ${l.pdfData?`<button onclick="openLeadPDF('${l.id}')" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
         📄 PDF öffnen: ${l.pdfName||'Anhang'}
       </button>`:''}
+      ${l.pdf ? '<button onclick="pdfViewerOpen(state.leads.find(x=>x.id===\'' + l.id + '\').pdf.data,state.leads.find(x=>x.id===\'' + l.id + '\').pdf.name)" style="margin-top:8px;width:100%;background:#3b82f622;color:var(--blue);border:1px solid #3b82f644;border-radius:10px;padding:8px;font-size:13px;font-weight:700;cursor:pointer">📄 '+l.pdf.name+'</button>' : ''}
       <button onclick="openTelefonatNotiz('${l.id}')" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
         📞 Telefonat-Notiz eintragen
       </button>
@@ -508,6 +535,8 @@ function saveLead(id){
   const get=k=>document.getElementById('lf-'+k)?.value||'';
   const data={firma:get('firma'),kontakt:get('kontakt'),email:get('email'),telefon:get('telefon'),branche:get('branche'),naechsterSchritt:get('naechsterSchritt'),status:get('status'),prioritaet:get('prioritaet'),notizen:get('notizen')};
   if(!data.firma){alert('Firma ist Pflichtfeld');return;}
+  if(window._tmpPDF) data.pdf = window._tmpPDF;
+  else if(id){ const ex=(state.leads||[]).find(l=>l.id===id); if(ex?.pdf) data.pdf=ex.pdf; }
   // Handle PDF
   const pdfInput=document.getElementById('lf-pdf-file');
   const pdfFile=pdfInput?.files?.[0];
@@ -1379,10 +1408,20 @@ async function uploadPDFAnfrage(input) {
   const file = input.files[0];
   if (!file) return;
   input.value = '';
+  // Store PDF and open manual form
+  pdfReadFile(file, function(p) {
+    window._tmpPDF = p;
+    openAnfrageFormManuell(file.name);
+  });
+}
+
+function _uploadPDFAnfrageOLD(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
   const apiKey = localStorage.getItem('vp_apikey')||'';
 
   if (!apiKey) {
-    // No API key - open manual form with PDF name pre-filled
     openAnfrageFormManuell(file.name);
     return;
   }
@@ -1460,36 +1499,50 @@ function saveAnfrageManual(pdfName) {
   const firma = document.getElementById('af-firma')?.value?.trim();
   if (!firma) { alert('Firma ist Pflichtfeld'); return; }
   const d = new Date(); d.setDate(d.getDate()+3);
+  const pdf = window._tmpPDF || (pdfName ? {name:pdfName} : null);
   const anfrage = {
     id: Date.now()+'',
-    firma, 
+    firma,
     kontakt: document.getElementById('af-kontakt')?.value||'',
     telefon: document.getElementById('af-telefon')?.value||'',
     maschine: document.getElementById('af-maschine')?.value||'',
     problem: document.getElementById('af-problem')?.value||'',
     komNr: document.getElementById('af-komNr')?.value||'',
-    pdfName: pdfName||'',
+    pdf: pdf,
+    pdfName: pdf?.name||'',
     datum: heute(), bearbeitet: false,
     erinnerung: d.toISOString().split('T')[0]
   };
   state.anfragen = [...(state.anfragen||[]), anfrage];
-  // Also create lead if not exists
-  if (!(state.leads||[]).find(l=>l.firma===firma)) {
+
+  // Find or create lead - NO DUPLICATES
+  const existingLead = (state.leads||[]).find(l=>l.firma===firma);
+  if (!existingLead) {
     state.leads = [...(state.leads||[]), {
       id:'af-'+Date.now(), firma,
       kontakt: anfrage.kontakt, telefon: anfrage.telefon,
       status:'Qualifiziert', prioritaet:'Hoch',
       naechsterSchritt:'Angebot für: '+anfrage.maschine,
       notizen:'Techniker-Anfrage: '+anfrage.problem,
+      pdf: pdf,
       erstellt:heute(), letzterKontakt:heute()
     }];
-    save('leads');
+  } else {
+    // Update existing lead with new info
+    state.leads = state.leads.map(l => l.firma===firma ? {
+      ...l,
+      pdf: pdf||l.pdf,
+      notizen: (l.notizen||'') + ' | Anfrage ' + heute() + ': ' + anfrage.problem,
+      letzterKontakt: heute()
+    } : l);
   }
-  save('anfragen');
+  save('leads'); save('anfragen');
+  window._tmpPDF = null;
   updateBadges();
   closeSheet();
   renderAnfragen();
-  alert('✅ Anfrage gespeichert!\n' + firma + (pdfName?'\n📄 '+pdfName:''));
+  const msg = existingLead ? 'Anfrage gespeichert - Lead aktualisiert: ' + firma : 'Anfrage + Lead angelegt: ' + firma;
+  alert(msg + (pdf ? ' | PDF: ' + pdf.name : ''));
 }
 
 function prefillAnfrageForm(data) {
@@ -2316,6 +2369,71 @@ function openLeadPDF(leadId) {
     a.download = l.pdfName || 'anhang.pdf';
     a.click();
   }
+}
+
+
+// ═══════════════════════════════════════════════════════
+// PDF SYSTEM - zentrale PDF Verwaltung
+// ═══════════════════════════════════════════════════════
+
+function pdfReadFile(file, callback) {
+  const reader = new FileReader();
+  reader.onload = () => callback({
+    name: file.name,
+    size: file.size,
+    data: reader.result,
+    datum: heute()
+  });
+  reader.readAsDataURL(file);
+}
+
+function pdfViewerOpen(pdfData, pdfName) {
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write('<html><head><title>' + (pdfName||'PDF') + '</title></head><body style="margin:0;background:#000"><embed src="' + pdfData + '" type="application/pdf" width="100%" height="100%" style="position:fixed;inset:0"/></body></html>');
+    win.document.close();
+  } else {
+    const a = document.createElement('a');
+    a.href = pdfData;
+    a.download = pdfName || 'dokument.pdf';
+    a.click();
+  }
+}
+
+function pdfPreviewHtml(pdf, clearFn) {
+  if (!pdf) return '';
+  const kb = Math.round((pdf.size||0)/1024);
+  return '<div style="background:#3b82f611;border:1px solid #3b82f633;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+    '<span style="font-size:20px">📄</span>' +
+    '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (pdf.name||'Dokument') + '</div>' +
+    '<div style="font-size:11px;color:var(--text3)">' + (kb>0?kb+' KB · ':'') + (pdf.datum||'') + '</div></div>' +
+    (clearFn ? '<button onclick="' + clearFn + '" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer">✕</button>' : '') +
+    '</div>';
+}
+
+function pdfUploadField(inputId, previewId, clearFn) {
+  return '<div id="' + previewId + '"></div>' +
+    '<label class="pdf-upload-zone">' +
+    '<span style="font-size:22px">📎</span>' +
+    '<div><div style="font-weight:700;font-size:13px;color:var(--text)">PDF anhängen</div>' +
+    '<div style="font-size:11px;color:var(--text3)">Angebot, Auftrag, Anfrage…</div></div>' +
+    '<input type="file" id="' + inputId + '" accept=".pdf,application/pdf" style="display:none" onchange="' +
+    'const f=this.files[0];if(f){pdfReadFile(f,function(p){window._tmpPDF=p;document.getElementById(' + "'" + previewId + "'" + ').innerHTML=pdfPreviewHtml(p,' + "'" + clearFn + "'" + ');})}' +
+    '"/></label>';
+}
+
+window._tmpPDF = null;
+
+function clearTmpPDF() {
+  window._tmpPDF = null;
+  ['lf-pdf-prev','ag-pdf-prev','af-pdf-prev','bf-pdf-prev'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML='';
+  });
+  ['lf-pdf','ag-pdf','af-pdf','bf-pdf'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value='';
+  });
 }
 
 // ═══════════════════════════════════════════════════════
