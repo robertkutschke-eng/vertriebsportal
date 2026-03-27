@@ -446,6 +446,7 @@ function renderLeadList(){
       ${l.email?`<a href="mailto:${l.email}?subject=Ihre Anfrage&body=Sehr geehrte/r ${encodeURIComponent(l.kontakt||'')}" class="btn btn-sm btn-email btn-full" style="text-decoration:none;margin-bottom:8px">✉️ E-Mail: ${l.email}</a>`:''}
       ${l.naechsterSchritt?`<div style="color:var(--blue);font-size:13px;margin-top:6px">➡️ ${l.naechsterSchritt}</div>`:''}
       ${l.notizen?`<div style="background:var(--input);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12px;color:var(--text3);line-height:1.5;max-height:80px;overflow:hidden">${l.notizen.slice(0,200)}${l.notizen.length>200?'…':''}</div>`:''}
+      ${l.dokumente&&l.dokumente.length?`<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${l.dokumente.map(d=>'<a href="'+d.data+'" download="'+d.name+'" style="background:#3b82f622;color:var(--blue);border-radius:5px;padding:3px 8px;font-size:11px;text-decoration:none;font-weight:700">📎 '+d.name.slice(0,20)+'</a>').join('')}</div>`:''}
       ${l.pdfData?`<button onclick="openLeadPDF('${l.id}')" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
         📄 PDF öffnen: ${l.pdfName||'Anhang'}
       </button>`:''}
@@ -467,6 +468,17 @@ function openLeadForm(id){
     <div class="field"><label>Status</label><select id="lf-status">${statuses.map(s=>`<option ${(l.status||'Neu')===s?'selected':''}>${s}</option>`).join('')}</select></div>
     <div class="field"><label>Priorität</label><select id="lf-prioritaet"><option ${(l.prioritaet||'Mittel')==='Hoch'?'selected':''}>Hoch</option><option ${(l.prioritaet||'Mittel')==='Mittel'?'selected':''}>Mittel</option><option ${(l.prioritaet||'Mittel')==='Niedrig'?'selected':''}>Niedrig</option></select></div>
     <div class="field"><label>Notizen</label><textarea id="lf-notizen">${l.notizen||''}</textarea></div>
+    <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase">📎 Dokumente anhängen</div>
+      <div id="lf-docs-preview" style="margin-bottom:8px">
+        ${(l.dokumente||[]).map(d=>'<div style="background:#3b82f611;border:1px solid #3b82f633;border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:8px;margin-bottom:4px"><span>📄</span><span style="font-size:12px;flex:1">'+d.name+'</span><a href="'+d.data+'" download="'+d.name+'" style="color:var(--blue);font-size:11px">↓</a></div>').join('')}
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:10px;cursor:pointer">
+        <span style="font-size:18px">📎</span>
+        <div style="flex:1"><div style="font-weight:700;font-size:12px">Dokument hinzufügen</div><div style="font-size:11px;color:var(--text3)">PDF, Bilder, Dokumente</div></div>
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple style="display:none" onchange="leadAddDokument(this)"/>
+      </label>
+    </div>
     <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
       <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📎 PDF Anhang</div>
       <div id="lf-pdf-preview" style="margin-bottom:8px"></div>
@@ -518,6 +530,10 @@ function saveLead(id){
   const get=k=>document.getElementById('lf-'+k)?.value||'';
   const data={firma:get('firma'),kontakt:get('kontakt'),email:get('email'),telefon:get('telefon'),branche:get('branche'),naechsterSchritt:get('naechsterSchritt'),status:get('status'),prioritaet:get('prioritaet'),notizen:get('notizen')};
   if(!data.firma){alert('Firma ist Pflichtfeld');return;}
+  // Merge documents
+  const existDocs = id ? ((state.leads||[]).find(l=>l.id===id)?.dokumente||[]) : [];
+  data.dokumente = [...existDocs, ...(window._leadDocs||[])];
+  window._leadDocs = [];
   // Handle PDF
   const pdfInput=document.getElementById('lf-pdf-file');
   const pdfFile=pdfInput?.files?.[0];
@@ -2474,12 +2490,14 @@ function renderBesuche(){
               <div style="font-size:16px;font-weight:800">${b.firma}</div>
               <div style="color:var(--text3);font-size:12px">📅 ${b.datum}${b.uhrzeit?' 🕐 '+b.uhrzeit:''} ${b.kontakt?'· 👤 '+b.kontakt:''}</div>
             </div>
-            <div style="display:flex;gap:6px">
-              <button onclick="besuchZuLead('${b.id}')" style="background:#10b98122;color:var(--green);border:1px solid #10b98144;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700">👤 Lead/Angebot</button>
+            <div style="display:flex;gap:5px;flex-wrap:wrap">
+              <button onclick="besuchZuLead('${b.id}')" style="background:#10b98122;color:var(--green);border:1px solid #10b98144;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700">👤 Lead</button>
               <button onclick="besuchAlsPDF('${b.id}')" style="background:#3b82f622;color:var(--blue);border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700">📄 PDF</button>
+              <button onclick="besuchAlsPDF('${b.id}',true)" style="background:#a855f722;color:#a855f7;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700">📤 Hersteller</button>
               <button onclick="openBesuchForm('${b.id}')" class="btn btn-sm btn-secondary">✏️</button>
               <button onclick="deleteBesuch('${b.id}')" class="btn btn-sm btn-danger">🗑</button>
             </div>
+            ${b.fotos&&b.fotos.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${b.fotos.map((f,i)=>'<img src="'+f+'" onclick="besuchFotoGross(\'${b.id}\','+i+')" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:2px solid var(--border)"/>').join('')}</div>`:``}
           </div>
           ${b.maschinenpark?`<div style="background:#a855f711;border-radius:8px;padding:8px;margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:#a855f7;margin-bottom:2px">MASCHINENPARK/WETTBEWERB</div><div style="font-size:13px">${b.maschinenpark}</div></div>`:''}
           ${b.interesse?`<div style="background:#10b98111;border-radius:8px;padding:8px;margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:var(--green);margin-bottom:2px">INTERESSE/BEDARF</div><div style="font-size:13px">${b.interesse}</div></div>`:''}
@@ -2516,6 +2534,22 @@ function openBesuchForm(id){
     </div>
     <div class="field"><label>Notizen</label><textarea id="bf-notizen" rows="2" placeholder="Sonstiges…">${b.notizen||''}</textarea></div>
     <div class="field"><label>Nächste Schritte</label><textarea id="bf-naechste" rows="2" placeholder="Was passiert als nächstes?">${b.naechsteSchritte||''}</textarea></div>
+
+    <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase">📸 Fotos</div>
+      <div id="bf-fotos-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        ${(b.fotos||[]).map((f,i)=>'<div style="position:relative"><img src="'+f+'" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:2px solid var(--border)"/><button onclick="besuchFormRemoveFoto('+i+')" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button></div>').join('')}
+      </div>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1;background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:10px;cursor:pointer;text-align:center;font-size:12px;font-weight:700;color:var(--text2)">
+          📁 Ordner<input type="file" accept="image/*" multiple style="display:none" onchange="besuchFormAddFotos(this)"/>
+        </label>
+        <label style="flex:1;background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:10px;cursor:pointer;text-align:center;font-size:12px;font-weight:700;color:var(--text2)">
+          📷 Kamera<input type="file" accept="image/*" capture="environment" style="display:none" onchange="besuchFormAddFotos(this)"/>
+        </label>
+      </div>
+    </div>
+
     <div class="field"><label>Erinnerung in</label>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="checkbox" id="bf-remind" checked style="width:20px;height:20px;accent-color:var(--blue)"/>
@@ -2526,6 +2560,7 @@ function openBesuchForm(id){
       <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
       <button class="btn btn-primary btn-full" onclick="saveBesuch('${id||''}')">💾 Speichern</button>
     </div>`);
+  window._besuchFotos = b && b.fotos ? [...b.fotos] : [];
   setTimeout(()=>document.getElementById('bf-firma')?.focus(),300);
 }
 
@@ -2533,7 +2568,8 @@ function saveBesuch(id){
   const g=k=>document.getElementById('bf-'+k)?.value||'';
   if(!g('firma')){alert('Firma ist Pflichtfeld');return;}
   const data={firma:g('firma'),datum:g('datum'),uhrzeit:g('uhrzeit'),kontakt:g('kontakt'),
-    maschinenpark:g('maschinen'),interesse:g('interesse'),notizen:g('notizen'),naechsteSchritte:g('naechste')};
+    maschinenpark:g('maschinen'),interesse:g('interesse'),notizen:g('notizen'),naechsteSchritte:g('naechste'),
+    fotos:window._besuchFotos||[]};
   if(!state.besuche)state.besuche=[];
   if(id){state.besuche=state.besuche.map(b=>b.id===id?{...b,...data}:b);}
   else{
@@ -2553,32 +2589,60 @@ function deleteBesuch(id){
   if(confirm('Besuch löschen?')){state.besuche=(state.besuche||[]).filter(b=>b.id!==id);save('besuche');renderBesuche();}
 }
 
-function besuchAlsPDF(id){
+function besuchAlsPDF(id, herstellerModus){
   const b=(state.besuche||[]).find(x=>x.id===id);
   if(!b)return;
   const ziele=state.ziele||{};
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Besuchsbericht ${b.firma}</title>
-<style>body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#1a1a2e}
-h1{color:#1d4ed8;font-size:22px;margin-bottom:4px}.meta{color:#64748b;font-size:13px;margin-bottom:24px}
-.section{margin-bottom:20px}.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#a855f7;border-bottom:2px solid #a855f733;padding-bottom:4px;margin-bottom:8px}
-.section-text{font-size:14px;line-height:1.6;color:#374151}
+  const monate=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const fmt=d=>{const dt=new Date(d);return dt.getDate()+'. '+monate[dt.getMonth()]+' '+dt.getFullYear();};
+  const titel = herstellerModus ? 'Kundenbesuchsbericht' : 'Besuchsbericht';
+  const fotosHTML = (b.fotos&&b.fotos.length) ? `
+    <div class="section">
+      <div class="section-title">Fotos</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        ${b.fotos.map(f=>'<img src="'+f+'" style="width:100%;height:160px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0"/>').join('')}
+      </div>
+    </div>` : '';
+  const html2=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titel} ${b.firma}</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#1a1a2e}
+.header{background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border-radius:12px;padding:24px;margin-bottom:24px}
+.header h1{margin:0 0 4px;font-size:22px}.header p{margin:0;opacity:.85;font-size:13px}
+.section{margin-bottom:20px}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#a855f7;border-bottom:2px solid #a855f733;padding-bottom:4px;margin-bottom:8px}
+.section-text{font-size:14px;line-height:1.6;color:#374151;background:#f8fafc;border-radius:8px;padding:12px}
 .footer{margin-top:40px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}
-@media print{.no-print{display:none}}</style></head>
+.sig{margin-top:40px;display:flex;justify-content:space-between}
+.sig-line{width:220px;border-top:1px solid #1a1a2e;padding-top:8px;font-size:12px;color:#64748b}
+@media print{.no-print{display:none}}
+</style></head>
 <body>
-<h1>🏢 Besuchsbericht: ${b.firma}</h1>
-<div class="meta">📅 ${b.datum}${b.uhrzeit?' · 🕐 '+b.uhrzeit+' Uhr':''} ${b.kontakt?'· 👤 '+b.kontakt:''}<br>
-Erstellt von: ${ziele.name||'Robert Kutschke'} · AS Technical Solutions GmbH</div>
+<div class="header">
+  <h1>🏢 ${titel}: ${b.firma}</h1>
+  <p>📅 ${fmt(b.datum)}${b.uhrzeit?' · 🕐 '+b.uhrzeit+' Uhr':''}${b.kontakt?' · 👤 '+b.kontakt:''}<br>
+  ${ziele.name||'Robert Kutschke'} · AS Technical Solutions GmbH</p>
+</div>
 ${b.maschinenpark?`<div class="section"><div class="section-title">Maschinenpark & Wettbewerb</div><div class="section-text">${b.maschinenpark}</div></div>`:''}
 ${b.interesse?`<div class="section"><div class="section-title">Interesse & Bedarf</div><div class="section-text">${b.interesse}</div></div>`:''}
-${b.notizen?`<div class="section"><div class="section-title">Notizen</div><div class="section-text">${b.notizen}</div></div>`:''}
+${b.notizen?`<div class="section"><div class="section-title">Gesprächsnotizen</div><div class="section-text">${b.notizen}</div></div>`:''}
 ${b.naechsteSchritte?`<div class="section"><div class="section-title">Nächste Schritte</div><div class="section-text">${b.naechsteSchritte}</div></div>`:''}
-<div class="footer">Vertrieb Pro · AS Technical Solutions GmbH · ${new Date().toLocaleString('de-DE')}</div>
+${fotosHTML}
+<div class="sig">
+  <div class="sig-line">Datum, Ort</div>
+  <div class="sig-line">Unterschrift Außendienst</div>
+  <div class="sig-line">Empfangen von</div>
+</div>
+<div class="footer">AS Technical Solutions GmbH · ${new Date().toLocaleString('de-DE')}</div>
 <div class="no-print" style="text-align:center;margin-top:20px">
-<button onclick="window.print()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Drucken / Als PDF</button></div>
+  <button onclick="window.print()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;margin-right:8px">🖨️ Drucken / Als PDF</button>
+  <button onclick="window.close()" style="background:#e2e8f0;color:#374151;border:none;border-radius:8px;padding:12px 20px;font-size:15px;font-weight:700;cursor:pointer">✕ Schließen</button>
+</div>
 </body></html>`;
   const w=window.open('','_blank');
-  if(w){w.document.write(html);w.document.close();}
+  if(w){w.document.write(html2);w.document.close();}
 }
+
 
 function genWochenbericht(){
   const now=new Date();
@@ -3194,6 +3258,76 @@ function katalogSaveManual(){
   renderKatalog();
   alert('Produkt gespeichert: '+name);
 }
+
+function besuchFormAddFotos(input){
+  const files = Array.from(input.files||[]);
+  if(!files.length) return;
+  let done = 0;
+  files.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = e => {
+      window._besuchFotos = window._besuchFotos || [];
+      window._besuchFotos.push(e.target.result);
+      done++;
+      if(done===files.length) besuchFormRenderFotos();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function besuchFormRenderFotos(){
+  const prev = document.getElementById('bf-fotos-preview');
+  if(!prev) return;
+  prev.innerHTML = (window._besuchFotos||[]).map((f,i)=>
+    '<div style="position:relative"><img src="'+f+'" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:2px solid var(--border)"/>'+
+    '<button onclick="besuchFormRemoveFoto('+i+')" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer">✕</button></div>'
+  ).join('');
+}
+
+function besuchFormRemoveFoto(idx){
+  window._besuchFotos = (window._besuchFotos||[]).filter((_,i)=>i!==idx);
+  besuchFormRenderFotos();
+}
+
+function besuchFotoGross(besuchId, fotoIdx){
+  const b = (state.besuche||[]).find(x=>x.id===besuchId);
+  if(!b||!b.fotos||!b.fotos[fotoIdx]) return;
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer';
+  overlay.innerHTML = '<img src="'+b.fotos[fotoIdx]+'" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px"/>';
+  overlay.onclick = ()=>document.body.removeChild(overlay);
+  document.body.appendChild(overlay);
+}
+
+function besuchAnHersteller(id){
+  const b=(state.besuche||[]).find(x=>x.id===id);
+  if(!b)return;
+  besuchAlsPDF(id, true);
+}
+
+
+function leadAddDokument(input){
+  const files = Array.from(input.files||[]);
+  if(!files.length) return;
+  window._leadDocs = window._leadDocs || [];
+  let done = 0;
+  files.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = e => {
+      window._leadDocs.push({name:file.name, data:e.target.result, size:file.size, datum:heute()});
+      done++;
+      if(done===files.length){
+        const prev = document.getElementById('lf-docs-preview');
+        if(prev) prev.innerHTML = window._leadDocs.map(d=>
+          '<div style="background:#3b82f611;border:1px solid #3b82f633;border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:8px;margin-bottom:4px">'+
+          '<span>📄</span><span style="font-size:12px;flex:1">'+d.name+'</span>'+
+          '</div>'
+        ).join('');
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
 // ═══════════════════════════════════════════════════════
 // RENDERS MAP
 // ═══════════════════════════════════════════════════════
@@ -3267,7 +3401,30 @@ window.addEventListener('DOMContentLoaded',()=>{
     },500);
   }
   init();
+  // Friday reminder for weekly report
+  checkFridayReminder();
 });
+
+function checkFridayReminder(){
+  const now = new Date();
+  if(now.getDay() !== 5) return; // Only Friday
+  const lastRemind = localStorage.getItem('vp_wbremind');
+  const today = now.toISOString().split('T')[0];
+  if(lastRemind === today) return;
+  localStorage.setItem('vp_wbremind', today);
+  setTimeout(()=>{
+    const besuche = state.besuche||[];
+    const mon = new Date(now); mon.setDate(now.getDate() - 4); // Monday
+    const monStr = mon.toISOString().split('T')[0];
+    const wochenBesuche = besuche.filter(b=>b.datum>=monStr);
+    if(wochenBesuche.length > 0){
+      if(confirm('🔔 Freitags-Erinnerung:\n\nDu hast '+wochenBesuche.length+' Besuch(e) diese Woche.\nJetzt Wochenbericht erstellen?')){
+        showTab('besuche');
+        setTimeout(()=>genWochenbericht(), 300);
+      }
+    }
+  }, 2000);
+}
 </script>
 </body>
 </html>
