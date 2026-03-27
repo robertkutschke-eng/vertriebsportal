@@ -607,6 +607,7 @@ function renderAngebote(){
               ${a.positionen?.length?`<div style="color:var(--text4);font-size:11px;margin-top:4px">📦 ${a.positionen.length} Positionen</div>`:''}
               ${a.abschlussDatum?`<div style="color:var(--orange);font-size:11px;margin-top:3px">📅 ${a.abschlussDatum}</div>`:''}
             </div>
+            ${a.pdf?`<button onclick="event.stopPropagation();angebotPDFOeffnen('${a.id}')" style="background:#3b82f622;color:var(--blue);border:none;border-radius:6px;padding:5px 8px;font-size:12px;font-weight:700;cursor:pointer">📄 PDF</button>`:''}
             <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteAngebot('${a.id}')">🗑</button>
           </div>
           <div style="margin-top:10px;display:flex;gap:6px">
@@ -628,137 +629,135 @@ function renderAngebote(){
 
 function deleteAngebot(id){if(confirm('Angebot löschen?')){state.angebote=state.angebote.filter(a=>a.id!==id);save('angebote');renderAngebote();}}
 
-function openAngebotForm(id){
-  const a=id?state.angebote.find(x=>x.id===id):{};
-  const pos=a.positionen||[];
-  const posHtml=pos.map((p,i)=>`<div id="pos-${i}" style="background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
-    <input placeholder="Bezeichnung" value="${p.bezeichnung||''}" id="pb-${i}" style="width:100%;background:none;border:none;color:var(--text);font-size:15px;margin-bottom:6px"/>
-    <div style="display:flex;gap:8px">
-      <input type="number" placeholder="Menge" value="${p.menge||1}" id="pm-${i}" style="flex:1;background:none;border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text)"/>
-      <input type="number" placeholder="Preis" value="${p.einzelpreis||0}" id="pp-${i}" style="flex:2;background:none;border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text)"/>
-      <button onclick="removePos(${i})" style="background:none;border:none;color:var(--red);font-size:18px;padding:4px">×</button>
-    </div>
-  </div>`).join('');
+function openAngebotForm(id, prefillFirma){
+  window._angebotPDF = null;
+  const a = id ? (state.angebote||[]).find(x=>x.id===id) : {};
+  const firma = prefillFirma || a.firma || '';
+  const leads = (state.leads||[]).map(l=>l.firma);
 
   openSheet(`
-    <div class="sheet-title">${id?'Angebot bearbeiten':'Neues Angebot'}</div>
-    <div class="field"><label>Titel *</label><input id="af-titel" value="${a.titel||''}"/></div>
-    <div class="field"><label>Firma</label><input id="af-firma" value="${a.firma||''}"/></div>
-    <div class="field"><label>Kontakt</label><input id="af-kontakt" value="${a.kontakt||''}"/></div>
+    <div class="sheet-title">📄 ${id?'Angebot bearbeiten':'Neues Angebot'}</div>
+
+    <div class="field"><label>Firma / Kunde *</label>
+      <input id="af-firma" value="${firma}" list="af-leads-list" placeholder="Kundenname"/>
+      <datalist id="af-leads-list">${leads.map(f=>'<option value="'+f+'">').join('')}</datalist>
+    </div>
+
+    <div class="field"><label>Angebots-Titel / Betreff</label>
+      <input id="af-titel" value="${a.titel||''}" placeholder="z.B. GRAEF Master 3020 Angebot"/>
+    </div>
+
     <div style="display:flex;gap:10px">
-      <div class="field" style="flex:1"><label>MwSt %</label><input type="number" id="af-mwst" value="${a.mwst||19}"/></div>
-      <div class="field" style="flex:1"><label>Rabatt %</label><input type="number" id="af-rabatt" value="${a.rabatt||0}"/></div>
-      <div class="field" style="flex:1"><label>Chance %</label><input type="number" id="af-chance" value="${a.wahrscheinlichkeit||50}"/></div>
-    </div>
-    <div class="field"><label>Status</label><select id="af-status">${['Angebot gesendet','In Verhandlung','Gewonnen','Verloren'].map(s=>`<option ${(a.status||'Angebot gesendet')===s?'selected':''}>${s}</option>`).join('')}</select></div>
-    <div class="field"><label>Abschluss (YYYY-MM-DD)</label><input id="af-datum" value="${a.abschlussDatum||''}"/></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3)">Positionen</label>
-      <button class="btn btn-sm btn-secondary" onclick="addPosRow()">+ Hinzufügen</button>
-    </div>
-    <div id="pos-list">${posHtml}</div>
-    <div id="pos-total" style="background:var(--card);border:1px solid var(--green);border-radius:10px;padding:14px;margin-bottom:12px;display:none">
-      <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)">
-        <span style="font-weight:800;font-size:15px">Gesamt (brutto):</span>
-        <span id="pos-total-val" style="color:var(--green);font-weight:800;font-size:18px"></span>
+      <div class="field" style="flex:1">
+        <label>Netto-Wert (€) *</label>
+        <input id="af-wert" type="number" value="${a.wert||''}" placeholder="0.00"
+          style="font-size:18px;font-weight:700;color:var(--green)"/>
+      </div>
+      <div class="field" style="flex:1">
+        <label>Status</label>
+        <select id="af-status" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px">
+          ${['Entwurf','Versendet','In Verhandlung','Gewonnen','Verloren'].map(s=>'<option '+(a.status===s?'selected':'')+'>'+s+'</option>').join('')}
+        </select>
       </div>
     </div>
-    <div class="field"><label>Notizen</label><textarea id="af-notizen">${a.notizen||''}</textarea></div>
+
+    <div class="field"><label>Wahrscheinlichkeit (%)</label>
+      <input id="af-wahr" type="range" min="0" max="100" value="${a.wahrscheinlichkeit||50}"
+        oninput="document.getElementById('af-wahr-val').textContent=this.value+'%'"
+        style="width:100%;accent-color:var(--blue)"/>
+      <div style="text-align:center;font-weight:700;color:var(--blue)" id="af-wahr-val">${a.wahrscheinlichkeit||50}%</div>
+    </div>
+
+    <!-- PDF Angebot hochladen -->
+    <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase">📎 Angebots-PDF</div>
+      <div id="af-pdf-prev">
+        ${a.pdf?'<div style="background:#3b82f611;border:1px solid #3b82f633;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px"><span>📄</span><div style="flex:1"><div style="font-size:13px;font-weight:700">'+a.pdf.name+'</div><div style="font-size:11px;color:var(--text3)">Gespeichert</div></div><button onclick="clearAngebotPDF()" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button></div>':''}
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:12px;cursor:pointer;margin-top:${a.pdf?'8':'0'}px">
+        <span style="font-size:22px">📤</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">PDF hochladen</div>
+          <div style="font-size:11px;color:var(--text3)">Angebot als PDF anhängen</div>
+        </div>
+        <input type="file" accept=".pdf,application/pdf" style="display:none" onchange="angebotPDFUpload(this)"/>
+      </label>
+    </div>
+
+    <div class="field"><label>Notizen</label>
+      <textarea id="af-notizen" rows="3" placeholder="Weitere Infos zum Angebot...">${a.notizen||''}</textarea>
+    </div>
+
     <div style="display:flex;gap:10px;margin-top:8px">
       <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
-      <button class="btn btn-primary btn-full" onclick="saveAngebot('${id||''}')">Speichern</button>
+      <button class="btn btn-primary btn-full" onclick="saveAngebot('${id||''}')">💾 Speichern</button>
     </div>`);
-  updatePosTotal();
+
+  // Pre-fill existing PDF
+  if(a.pdf) window._angebotPDF = a.pdf;
+  setTimeout(()=>document.getElementById('af-firma')?.focus(), 300);
 }
 
-let _posCount=0;
-function addPosRow(){
-  _posCount++;
-  const i='new'+_posCount;
-  const el=document.createElement('div');
-  el.id='pos-'+i;el.style='background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px';
-  el.innerHTML=`<input placeholder="Bezeichnung" id="pb-${i}" style="width:100%;background:none;border:none;color:var(--text);font-size:15px;margin-bottom:6px"/>
-    <div style="display:flex;gap:8px">
-      <input type="number" placeholder="Menge" value="1" id="pm-${i}" style="flex:1;background:none;border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text)" oninput="updatePosTotal()"/>
-      <input type="number" placeholder="Preis €" value="0" id="pp-${i}" style="flex:2;background:none;border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text)" oninput="updatePosTotal()"/>
-      <button onclick="this.parentElement.parentElement.remove();updatePosTotal()" style="background:none;border:none;color:var(--red);font-size:18px;padding:4px">×</button>
-    </div>`;
-  document.getElementById('pos-list').appendChild(el);
-  updatePosTotal();
+function angebotPDFUpload(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    window._angebotPDF = {name: file.name, data: e.target.result, size: file.size, datum: heute()};
+    const prev = document.getElementById('af-pdf-prev');
+    if(prev) prev.innerHTML = '<div style="background:#3b82f611;border:1px solid #3b82f633;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px">'+
+      '<span>📄</span><div style="flex:1"><div style="font-size:13px;font-weight:700">'+file.name+'</div>'+
+      '<div style="font-size:11px;color:var(--text3)">'+(file.size/1024).toFixed(0)+' KB</div></div>'+
+      '<button onclick="clearAngebotPDF()" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button></div>';
+  };
+  reader.readAsDataURL(file);
 }
 
-function removePos(i){document.getElementById('pos-'+i)?.remove();updatePosTotal();}
-
-function updatePosTotal(){
-  const list=document.getElementById('pos-list');if(!list)return;
-  const rows=list.querySelectorAll('[id^="pos-"]');
-  let n=0;
-  rows.forEach(r=>{
-    const id=r.id.replace('pos-','');
-    const m=Number(document.getElementById('pm-'+id)?.value||0);
-    const p=Number(document.getElementById('pp-'+id)?.value||0);
-    n+=m*p;
-  });
-  const mwst=Number(document.getElementById('af-mwst')?.value||19);
-  const rabatt=Number(document.getElementById('af-rabatt')?.value||0);
-  const nr=n*(1-rabatt/100);
-  const b=nr*(1+mwst/100);
-  const tot=document.getElementById('pos-total');
-  const val=document.getElementById('pos-total-val');
-  if(tot&&val){tot.style.display=n>0?'block':'none';val.textContent=`€${b.toLocaleString('de-DE',{minimumFractionDigits:2})}`;}
+function clearAngebotPDF(){
+  window._angebotPDF = null;
+  const prev = document.getElementById('af-pdf-prev');
+  if(prev) prev.innerHTML = '';
 }
 
 function saveAngebot(id){
-  const g=k=>document.getElementById('af-'+k)?.value||'';
-  const list=document.getElementById('pos-list');
-  const rows=list?list.querySelectorAll('[id^="pos-"]'):[];
-  const positionen=[];
-  rows.forEach(r=>{
-    const rid=r.id.replace('pos-','');
-    const bez=document.getElementById('pb-'+rid)?.value||'';
-    const m=Number(document.getElementById('pm-'+rid)?.value||1);
-    const p=Number(document.getElementById('pp-'+rid)?.value||0);
-    if(bez)positionen.push({id:rid,bezeichnung:bez,menge:m,einheit:'Stk.',einzelpreis:p});
-  });
-  const mwst=Number(g('mwst')||19);const rabatt=Number(g('rabatt')||0);
-  const wert=positionen.length>0?Math.round(calcBrutto(positionen,mwst,rabatt)):0;
-  const data={titel:g('titel'),firma:g('firma'),kontakt:g('kontakt'),status:g('status'),wahrscheinlichkeit:Number(g('chance')||50),abschlussDatum:g('datum'),mwst,rabatt,notizen:g('notizen'),positionen,wert};
-  if(!data.titel){alert('Titel ist Pflichtfeld');return;}
-  if(id)state.angebote=state.angebote.map(a=>a.id===id?{...a,...data}:a);
-  else {
-    const newAng={...data,id:Date.now()+'',erstellt:heute()};
-    state.angebote=[...state.angebote,newAng];
-    // Auto 3-Tage Nachfass-Erinnerung
-    const d3=new Date();d3.setDate(d3.getDate()+3);
-    const er3=d3.toISOString().split('T')[0];
-    const aufgAng={id:'nf-'+Date.now(),titel:'📄 Angebot nachfassen: '+(newAng.firma||newAng.titel),
-      beschreibung:'Neues Angebot gesendet – in 3 Tagen nachfassen! Angebot: '+newAng.titel,
-      faellig:er3,prioritaet:'Hoch',erledigt:false,bezug:newAng.firma||'',
-      typ:'Nachfass',autoErstellt:true};
-    state.aufgaben=[...(state.aufgaben||[]),aufgAng];
-    save('aufgaben');
+  const firma = document.getElementById('af-firma')?.value?.trim();
+  const wert = parseFloat(document.getElementById('af-wert')?.value||0);
+  if(!firma){ alert('Firma ist Pflichtfeld'); return; }
+  if(!wert){ alert('Bitte Netto-Wert eingeben'); return; }
+
+  const data = {
+    firma,
+    titel: document.getElementById('af-titel')?.value || firma,
+    wert,
+    status: document.getElementById('af-status')?.value || 'Entwurf',
+    wahrscheinlichkeit: parseInt(document.getElementById('af-wahr')?.value||50),
+    notizen: document.getElementById('af-notizen')?.value || '',
+    pdf: window._angebotPDF || (id ? (state.angebote||[]).find(a=>a.id===id)?.pdf : null)
+  };
+  window._angebotPDF = null;
+
+  if(id){
+    state.angebote = state.angebote.map(a => a.id===id ? {...a,...data} : a);
+  } else {
+    data.id = Date.now()+'';
+    data.erstellt = heute();
+    state.angebote = [...(state.angebote||[]), data];
+    // Auto reminder if not Gewonnen/Verloren
+    if(!['Gewonnen','Verloren'].includes(data.status)){
+      const d = new Date(); d.setDate(d.getDate()+7);
+      state.aufgaben = [...(state.aufgaben||[]), {
+        id:'ag-'+Date.now(), titel:'Angebot nachfassen: '+firma,
+        beschreibung:data.titel+' · €'+wert.toFixed(2),
+        faellig:d.toISOString().split('T')[0], prioritaet:'Hoch',
+        erledigt:false, bezug:firma, typ:'Angebot', autoErstellt:true
+      }];
+      save('aufgaben');
+    }
   }
-  save('angebote');closeSheet();renderAngebote();
+  save('angebote'); updateBadges(); closeSheet(); renderAngebote();
 }
 
-// ═══════════════════════════════════════════════════════
-// AUFGABEN
-// ═══════════════════════════════════════════════════════
-function renderAufgaben(){
-  const {aufgaben}=state;
-  const overdue=aufgaben.filter(t=>!t.erledigt&&t.faellig<=heute());
-  const el=document.getElementById('screen-aufgaben');
-  el.innerHTML=`
-    ${overdue.length?`<div style="background:#ef444422;border-bottom:1px solid #ef444444;padding:10px 16px;display:flex;align-items:center;gap:8px">
-      <span style="font-size:18px">⚠️</span><span style="color:var(--red);font-weight:700;font-size:13px">${overdue.length} überfällige Aufgaben!</span>
-    </div>`:''}
-    <div style="padding:8px 16px;overflow-x:auto;display:flex;gap:8px;border-bottom:1px solid var(--border);min-height:50px;align-items:center">
-      ${[['offen','Offen'],['faellig','Überfällig'],['erledigt','Erledigt'],['alle','Alle']].map(([k,l])=>`<button class="filter-tab${k==='offen'?' active':''}" onclick="filterAufgaben('${k}',this)">${l}</button>`).join('')}
-    </div>
-    <div id="aufgaben-list" style="flex:1;overflow-y:auto;padding:16px;padding-bottom:80px"></div>
-    <button class="fab" onclick="openAufgabeForm(null)">+</button>`;
-  filterAufgaben('offen');
-}
+
 
 function filterAufgaben(f,btn){
   document.querySelectorAll('#screen-aufgaben .filter-tab').forEach(b=>b.classList.remove('active'));
@@ -3178,7 +3177,7 @@ function besuchZuLead(id){
   if(ex){
     if(confirm('Lead "'+b.firma+'" existiert.\nAngebot erstellen?')){
       showTab('angebote');
-      setTimeout(()=>{openAngebotForm(null);setTimeout(()=>{const f=document.getElementById('ag-firma');if(f)f.value=b.firma;},300);},400);
+      setTimeout(()=>openAngebotForm(null, b.firma), 400);
     }
     return;
   }
@@ -3196,9 +3195,9 @@ function besuchZuLead(id){
     erledigt:false,bezug:b.firma,typ:'Angebot',autoErstellt:true
   }];
   save('leads');save('aufgaben');updateBadges();
-  if(confirm('Lead "'+b.firma+'" angelegt!\nJetzt Angebot erstellen?')){
+  if(confirm('Lead "'+b.firma+'" angelegt! Jetzt Angebot hinzufügen?')){
     showTab('angebote');
-    setTimeout(()=>{openAngebotForm(null);setTimeout(()=>{const f=document.getElementById('ag-firma');if(f)f.value=b.firma;},300);},400);
+    setTimeout(()=>openAngebotForm(null, b.firma), 400);
   }
 }
 
@@ -3327,6 +3326,21 @@ function leadAddDokument(input){
     };
     reader.readAsDataURL(file);
   });
+}
+
+function angebotPDFOeffnen(id){
+  const a = (state.angebote||[]).find(x=>x.id===id);
+  if(!a||!a.pdf) return;
+  const win = window.open('','_blank');
+  if(win){
+    win.document.write('<html><head><title>'+a.pdf.name+'</title></head><body style="margin:0;background:#000"><embed src="'+a.pdf.data+'" type="application/pdf" width="100%" height="100%" style="position:fixed;inset:0"/></body></html>');
+    win.document.close();
+  } else {
+    const link = document.createElement('a');
+    link.href = a.pdf.data;
+    link.download = a.pdf.name;
+    link.click();
+  }
 }
 // ═══════════════════════════════════════════════════════
 // RENDERS MAP
