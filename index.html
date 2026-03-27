@@ -191,7 +191,6 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
   <div id="screen-karte" class="screen" style="padding:12px;padding-bottom:80px"></div>
   <div id="screen-katalog" class="screen"></div>
   <div id="screen-youtube" class="screen"></div>
-
   <div id="screen-stats" class="screen content"></div>
   <div id="screen-gebraucht" class="screen"></div>
   <div id="screen-anfragen" class="screen"></div>
@@ -223,7 +222,6 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
       Karte
     </button>
-    
     <button class="nav-btn" onclick="showTab('stats')" id="nav-stats">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
       Analyse
@@ -823,162 +821,97 @@ const BRANCHEN=[
 ];
 
 function renderKarte(){
-  const el = document.getElementById('screen-karte');
-  el.innerHTML = `
+  const el=document.getElementById('screen-karte');
+  el.innerHTML=`
     <div style="padding:16px">
       <h2 style="font-size:20px;font-weight:800;margin-bottom:4px">🗺️ Kaltakquise</h2>
-      <p style="color:var(--text3);font-size:12px;margin-bottom:16px">Betriebe in deiner Nähe direkt bei Google Maps suchen – öffne einen Link, ruf an, speichere als Lead.</p>
-
+      <p style="color:var(--text3);font-size:12px;margin-bottom:16px">Betriebe suchen · direkt anrufen · als Lead speichern</p>
       <div class="field">
-        <label>Ort / Stadt / PLZ</label>
+        <label>Ort / PLZ</label>
         <div style="display:flex;gap:8px">
-          <input id="karte-ort" placeholder="z.B. Blankenheim, 53945, Köln…" value="${localStorage.getItem('vp_karte_ort')||''}"
+          <input id="karte-ort" placeholder="z.B. Blankenheim, 53945..." value="${localStorage.getItem('vp_karte_ort')||''}"
             style="flex:1;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:15px"/>
-          <button onclick="karteGPSOrt()" style="background:var(--blue-dark);color:#fff;border:none;border-radius:8px;padding:10px 12px;font-size:18px;cursor:pointer" title="GPS Standort">📍</button>
+          <button onclick="karteGPSOrt()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:18px;cursor:pointer">📍</button>
         </div>
         <div id="karte-gps-status" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
       </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
-        ${[
-          {e:'🥩', n:'Metzgerei',     q:'Metzgerei Fleischerei'},
-          {e:'🥐', n:'Bäckerei',      q:'Bäckerei Konditorei'},
-          {e:'🐟', n:'Fischhandel',   q:'Fischhandel Fischerei'},
-          {e:'🍽️', n:'Restaurant',    q:'Restaurant Gastronomie'},
-          {e:'☕', n:'Café/Bistro',   q:'Café Bistro'},
-          {e:'🏨', n:'Hotel/Catering',q:'Hotel Catering'},
-          {e:'🏥', n:'Krankenhaus',   q:'Krankenhaus Klinik'},
-          {e:'🏠', n:'Pflegeheim',    q:'Pflegeheim Seniorenheim Altenheim'},
-          {e:'👴', n:'AWO/Caritas',   q:'AWO Caritas Diakonie Pflegeheim'},
-          {e:'🏋️', n:'Reha/Klinik',  q:'Rehaklinik Rehabilitation'},
-        ].map(b=>`
-          <button onclick="karteOeffne('${b.q}')"
-            style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:8px">
-            <span style="font-size:20px">${b.e}</span>
-            <span style="font-weight:700;font-size:13px;color:var(--text)">${b.n}</span>
-          </button>`).join('')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        ${[{e:'🥩',n:'Metzgerei',q:'Metzgerei Fleischerei'},{e:'🥐',n:'Baeckerei',q:'Baeckerei Konditorei'},
+           {e:'🐟',n:'Fischhandel',q:'Fischhandel Fischerei'},{e:'🍽️',n:'Restaurant',q:'Restaurant Gastronomie'},
+           {e:'☕',n:'Cafe/Bistro',q:'Cafe Bistro'},{e:'🏨',n:'Hotel/Catering',q:'Hotel Catering'},
+           {e:'🏥',n:'Krankenhaus',q:'Krankenhaus Klinik'},{e:'🏠',n:'Pflegeheim',q:'Pflegeheim Seniorenheim'},
+           {e:'👴',n:'AWO/Caritas',q:'AWO Caritas Diakonie Pflegeheim'},{e:'🏋️',n:'Reha/Klinik',q:'Rehaklinik Rehabilitation'}
+        ].map(b=>'<button onclick="karteOeffne(\'' +b.q+ '\')" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:8px"><span style="font-size:20px">'+b.e+'</span><span style="font-weight:700;font-size:13px;color:var(--text)">'+b.n+'</span></button>').join('')}
       </div>
-
       <div style="background:var(--input);border-radius:12px;padding:14px;margin-bottom:16px">
-        <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">🔍 Eigene Suche</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase">🔍 Eigene Suche</div>
         <div style="display:flex;gap:8px">
-          <input id="karte-custom" placeholder="z.B. Schlachthof, Großküche…"
+          <input id="karte-custom" placeholder="z.B. Schlachthof, Grossküche..."
             style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px"/>
           <button onclick="karteOeffneCustom()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer">🔍</button>
         </div>
       </div>
-
-      <!-- Lead direkt anlegen -->
-      <div style="background:linear-gradient(135deg,#10b98122,#3b82f622);border:1px solid #10b98144;border-radius:12px;padding:14px">
-        <div style="font-weight:700;font-size:14px;margin-bottom:8px">➕ Lead direkt anlegen</div>
-        <div class="field" style="margin-bottom:8px"><input id="k-firma" placeholder="Firmenname *" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;box-sizing:border-box"/></div>
+      <div style="background:#10b98118;border:1px solid #10b98133;border-radius:12px;padding:14px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px">➕ Lead direkt anlegen</div>
+        <input id="k-firma" placeholder="Firmenname *" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;box-sizing:border-box;margin-bottom:8px"/>
         <div style="display:flex;gap:8px;margin-bottom:8px">
           <input id="k-tel" placeholder="Telefon" type="tel" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px"/>
-          <input id="k-ort" placeholder="Ort" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px"/>
+          <input id="k-ort2" placeholder="Ort" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px"/>
         </div>
-        <select id="k-branche" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;margin-bottom:8px">
-          <option value="">Branche wählen…</option>
-          ${['Metzgerei','Bäckerei','Fischhandel','Restaurant','Hotel','Krankenhaus','Pflegeheim','Catering','Sonstige'].map(b=>`<option>${b}</option>`).join('')}
+        <select id="k-branche" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;margin-bottom:10px">
+          <option value="">Branche wählen...</option>
+          ${['Metzgerei','Baeckerei','Fischhandel','Restaurant','Hotel','Krankenhaus','Pflegeheim','Catering','Sonstige'].map(b=>'<option>'+b+'</option>').join('')}
         </select>
         <button onclick="karteSaveLead()" style="width:100%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;padding:11px;font-weight:700;cursor:pointer;font-size:14px">✅ Als Lead speichern</button>
       </div>
     </div>`;
-
-  setTimeout(()=>{
-    document.getElementById('karte-ort')?.addEventListener('keydown', e=>{
-      if(e.key==='Enter') karteOeffneCustom();
-    });
-    document.getElementById('karte-custom')?.addEventListener('keydown', e=>{
-      if(e.key==='Enter') karteOeffneCustom();
-    });
-    // Auto-get GPS if no saved location
-    if(!localStorage.getItem('vp_karte_ort')) karteGPSOrt();
-  }, 200);
+  setTimeout(()=>{if(!localStorage.getItem('vp_karte_ort'))karteGPSOrt();},200);
 }
 
-function karteGPSOrt(){
-  const statusEl = document.getElementById('karte-gps-status');
-  const ortEl = document.getElementById('karte-ort');
-  if(statusEl) statusEl.textContent = 'GPS wird ermittelt…';
-  if(!navigator.geolocation){
-    if(statusEl) statusEl.textContent = 'GPS nicht verfügbar';
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(function(pos){
-    // Reverse geocode via Nominatim
-    fetch('https://nominatim.openstreetmap.org/reverse?lat='+pos.coords.latitude+'&lon='+pos.coords.longitude+'&format=json&accept-language=de')
-      .then(r=>r.json())
-      .then(d=>{
-        const adr = d.address;
-        const ort = adr.city || adr.town || adr.village || adr.county || '';
-        const plz = adr.postcode || '';
-        const text = plz && ort ? plz+' '+ort : ort || plz;
-        if(ortEl && text){ ortEl.value = text; localStorage.setItem('vp_karte_ort', text); }
-        if(statusEl) statusEl.textContent = text ? 'Standort: '+text : 'Standort ermittelt';
-      })
-      .catch(()=>{
-        // Fallback: use coordinates directly
-        const coords = pos.coords.latitude.toFixed(4)+','+pos.coords.longitude.toFixed(4);
-        if(ortEl){ ortEl.value = coords; localStorage.setItem('vp_karte_ort', coords); }
-        if(statusEl) statusEl.textContent = 'GPS: '+coords;
-      });
-  }, function(){
-    if(statusEl) statusEl.textContent = 'GPS-Berechtigung verweigert';
-  }, {timeout:8000, maximumAge:300000});
+function karteOeffne(q){
+  const ort=document.getElementById('karte-ort')?.value?.trim()||localStorage.getItem('vp_karte_ort')||'';
+  if(ort)localStorage.setItem('vp_karte_ort',ort);
+  window.open('https://www.google.de/maps/search/'+encodeURIComponent(q+' '+ort+' Deutschland'),'_blank');
 }
-
-
-function karteOeffne(suchbegriff){
-  const ort = document.getElementById('karte-ort')?.value?.trim() || '';
-  localStorage.setItem('vp_karte_ort', ort);
-  const q = suchbegriff + (ort ? ' ' + ort : '') + ' Deutschland';
-  window.open('https://www.google.de/maps/search/' + encodeURIComponent(q), '_blank');
-}
-
 function karteOeffneCustom(){
-  const custom = document.getElementById('karte-custom')?.value?.trim();
-  const ort = document.getElementById('karte-ort')?.value?.trim() || '';
-  localStorage.setItem('vp_karte_ort', ort);
-  if(!custom){ alert('Bitte Suchbegriff eingeben'); return; }
-  const q = custom + (ort ? ' ' + ort : '') + ' Deutschland';
-  window.open('https://www.google.de/maps/search/' + encodeURIComponent(q), '_blank');
+  const c=document.getElementById('karte-custom')?.value?.trim();
+  const ort=document.getElementById('karte-ort')?.value?.trim()||'';
+  if(ort)localStorage.setItem('vp_karte_ort',ort);
+  if(!c){alert('Suchbegriff eingeben');return;}
+  window.open('https://www.google.de/maps/search/'+encodeURIComponent(c+' '+ort+' Deutschland'),'_blank');
 }
-
+function karteGPSOrt(){
+  const s=document.getElementById('karte-gps-status');
+  const o=document.getElementById('karte-ort');
+  if(s)s.textContent='GPS wird ermittelt...';
+  if(!navigator.geolocation){if(s)s.textContent='GPS nicht verfügbar';return;}
+  navigator.geolocation.getCurrentPosition(function(p){
+    fetch('https://nominatim.openstreetmap.org/reverse?lat='+p.coords.latitude+'&lon='+p.coords.longitude+'&format=json&accept-language=de',{headers:{'User-Agent':'VertriebPro/1.0'}})
+      .then(r=>r.json()).then(d=>{
+        const a=d.address;
+        const t=(a.postcode&&(a.city||a.town))?a.postcode+' '+(a.city||a.town||a.village||''):(a.city||a.town||a.village||'');
+        if(o&&t){o.value=t;localStorage.setItem('vp_karte_ort',t);}
+        if(s)s.textContent=t?'Standort: '+t:'Standort ermittelt';
+      }).catch(()=>{if(s)s.textContent='Standort ermittelt (kein Ortsname)';});
+  },function(){if(s)s.textContent='GPS-Berechtigung verweigert';},{timeout:8000});
+}
 function karteSaveLead(){
-  const firma = document.getElementById('k-firma')?.value?.trim();
-  if(!firma){ alert('Bitte Firmenname eingeben'); return; }
-  const tel = document.getElementById('k-tel')?.value?.trim() || '';
-  const ort = document.getElementById('k-ort')?.value?.trim() || '';
-  const branche = document.getElementById('k-branche')?.value || '';
-
-  if((state.leads||[]).some(l=>l.firma===firma)){
-    alert('"'+firma+'" ist bereits ein Lead!'); return;
-  }
-
-  const d = new Date(); d.setDate(d.getDate()+3);
-  state.leads = [...(state.leads||[]), {
-    id: Date.now()+'', firma, kontakt:'', email:'',
-    telefon: tel, branche, ort,
-    status:'Neu', prioritaet:'Mittel',
-    naechsterSchritt:'Kontakt aufnehmen',
-    notizen:'Via Karte Kaltakquise',
-    erstellt:heute(), letzterKontakt:heute()
-  }];
-  state.aufgaben = [...(state.aufgaben||[]), {
-    id:'nf-'+Date.now(), titel:'📞 Kontaktieren: '+firma,
-    faellig:d.toISOString().split('T')[0], prioritaet:'Mittel',
-    erledigt:false, bezug:firma, typ:'Nachfass', autoErstellt:true
-  }];
-  save('leads'); save('aufgaben'); updateBadges();
-
-  // Clear form
-  document.getElementById('k-firma').value='';
-  document.getElementById('k-tel').value='';
-  document.getElementById('k-ort').value='';
+  const firma=document.getElementById('k-firma')?.value?.trim();
+  if(!firma){alert('Firmenname eingeben');return;}
+  if((state.leads||[]).some(l=>l.firma===firma)){alert(firma+' ist bereits ein Lead!');return;}
+  const d=new Date();d.setDate(d.getDate()+3);
+  state.leads=[...(state.leads||[]),{id:Date.now()+'',firma,kontakt:'',email:'',
+    telefon:document.getElementById('k-tel')?.value||'',
+    branche:document.getElementById('k-branche')?.value||'',
+    ort:document.getElementById('k-ort2')?.value||'',
+    status:'Neu',prioritaet:'Mittel',naechsterSchritt:'Kontakt aufnehmen',
+    notizen:'Kaltakquise via Karte',erstellt:heute(),letzterKontakt:heute()}];
+  state.aufgaben=[...(state.aufgaben||[]),{id:'nf-'+Date.now(),titel:'Kontaktieren: '+firma,
+    faellig:d.toISOString().split('T')[0],prioritaet:'Mittel',erledigt:false,bezug:firma,typ:'Nachfass',autoErstellt:true}];
+  save('leads');save('aufgaben');updateBadges();
+  ['k-firma','k-tel','k-ort2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('k-branche').value='';
-
-  alert(firma+' als Lead gespeichert! Erinnerung in 3 Tagen.');
-  showTab('leads');
+  alert(firma+' als Lead gespeichert!');showTab('leads');
 }
 
 
@@ -1008,266 +941,73 @@ function getMyLocation(){
 }
 
 function searchNearby(){
-  if(!navigator.geolocation){mapShowOrtInput();return;}
-  var res=document.getElementById('map-results');
-  res.innerHTML='<div style="text-align:center;padding:20px;color:var(--blue)"><div class="spinner" style="margin:0 auto 10px"></div><b>GPS...</b></div>';
-  navigator.geolocation.getCurrentPosition(
-    function(p){mapRunSearch(p.coords.latitude,p.coords.longitude);},
-    function(){mapShowOrtInput();},
-    {timeout:8000,maximumAge:60000}
-  );
+  if(!navigator.geolocation){alert('GPS nicht verfügbar');return;}
+  document.getElementById('map-results').innerHTML=`<div style="text-align:center;padding:16px;color:var(--blue)"><div class="spinner" style="margin:0 auto 8px"></div>Suche Betriebe in der Nähe…</div>`;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude:lat,longitude:lng}=pos.coords;
+    _map.setView([lat,lng],14);
+    searchOverpass(lat,lng);
+  },()=>alert('GPS-Berechtigung benötigt'));
 }
 
-function mapShowOrtInput(){
-  var res=document.getElementById('map-results');
-  res.innerHTML='<div style="padding:16px"><b style="color:var(--text)">Ort eingeben:</b><br><br><input id="map-ort" placeholder="z.B. Koeln Blankenheim" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;box-sizing:border-box;margin-bottom:8px"/><button onclick="mapSearchByOrt()" style="width:100%;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;font-size:14px">Suchen</button></div>';
-  setTimeout(function(){var el=document.getElementById('map-ort');if(el){el.focus();el.onkeydown=function(e){if(e.key==='Enter')mapSearchByOrt();};}},100);
-}
+function searchOverpass(lat,lng){
+  const r=2000; // 2km radius
+  const queries=BRANCHEN.map(b=>`node["amenity"~"restaurant|fast_food|cafe|bar"](around:${r},${lat},${lng});`).join('');
+  const food=`[out:json][timeout:10];(node["shop"~"butcher|bakery|supermarket|convenience|greengrocer|deli|organic"](around:${r},${lat},${lng});node["amenity"~"restaurant|fast_food|cafe|bar|canteen"](around:${r},${lat},${lng}););out body;`;
 
-async function mapSearchByOrt(){
-  var ort=(document.getElementById('map-ort')&&document.getElementById('map-ort').value||'').trim();
-  if(!ort)return;
-  var res=document.getElementById('map-results');
-  res.innerHTML='<div style="text-align:center;padding:16px;color:var(--blue)"><div class="spinner" style="margin:0 auto 8px"></div>Suche...</div>';
-  try{
-    var r=await fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(ort+' Deutschland')+'&format=json&limit=1',{headers:{'User-Agent':'VertriebPro/1.0'}});
-    var d=await r.json();
-    if(!d||!d.length){res.innerHTML='<div style="color:var(--red);padding:16px">Ort nicht gefunden</div>';return;}
-    mapRunSearch(parseFloat(d[0].lat),parseFloat(d[0].lon));
-  }catch(e){res.innerHTML='<div style="color:var(--red);padding:16px">Fehler: '+e.message+'</div>';}
-}
+  fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(food)}`)
+    .then(r=>r.json())
+    .then(data=>{
+      // Clear old search markers (keep lead markers)
+      _markers.forEach(m=>{if(m._isSearch)_map.removeLayer(m);});
+      _markers=_markers.filter(m=>!m._isSearch);
 
-var _mapData=[];
+      const elements=data.elements||[];
+      let found=0;
+      elements.forEach(el=>{
+        if(!el.lat||!el.lon)return;
+        const name=el.tags?.name||'Unbekannt';
+        const shop=el.tags?.shop||el.tags?.amenity||'';
+        let branche=BRANCHEN[6]; // sonstige
+        if(shop.includes('butcher'))branche=BRANCHEN[0];
+        else if(shop.includes('baker'))branche=BRANCHEN[1];
+        else if(shop.includes('organic')||shop.includes('greengrocer'))branche=BRANCHEN[2];
+        else if(['restaurant','fast_food','cafe','bar','canteen'].includes(shop))branche=BRANCHEN[3];
+        else if(['supermarket','convenience'].includes(shop))branche=BRANCHEN[4];
 
-async function mapRunSearch(lat,lng){
-  var res=document.getElementById('map-results');
-  var km=parseInt((document.getElementById('map-radius')&&document.getElementById('map-radius').value)||'5');
-  var m=km*1000;
+        const icon=L.divIcon({
+          html:`<div style="background:${branche.color};width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.4)">${branche.emoji}</div>`,
+          iconSize:[28,28],iconAnchor:[14,14]
+        });
+        const m=L.marker([el.lat,el.lon],{icon}).addTo(_map);
+        m._isSearch=true;
+        m.bindPopup(`
+          <div style="min-width:160px">
+            <b style="font-size:14px">${name}</b><br/>
+            <span style="color:#666;font-size:12px">${branche.label}</span><br/>
+            <button onclick="addLeadFromMap('${name.replace(/'/g,"\\'")}','${branche.label}',${el.lat},${el.lon})" style="margin-top:8px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;width:100%">+ Als Lead speichern</button>
+          </div>`);
+        _markers.push(m);
+        found++;
+      });
 
-  if(!_map)initMap();
-  setTimeout(function(){if(_map){_map.setView([lat,lng],km<=3?14:km<=5?13:12);_map.invalidateSize();}},300);
-  _markers.forEach(function(mk){if(mk._isSearch)_map&&_map.removeLayer(mk);});
-  _markers=_markers.filter(function(mk){return !mk._isSearch;});
-  if(_map)L.circleMarker([lat,lng],{radius:8,color:'#1d4ed8',fillColor:'#3b82f6',fillOpacity:1,weight:3}).addTo(_map);
-
-  var p=[];
-  var cats=[
-    {id:'metz',n:'Metzgerei',e:'M',c:'#ef4444',
-     o:[['shop','butcher'],['craft','butcher']],k:'Metzgerei|Fleischerei|Schlachterei'},
-    {id:'baeck',n:'Baeckerei',e:'B',c:'#f59e0b',
-     o:[['shop','bakery'],['craft','bakery']],k:'Baeckerei|Konditorei|Backstube'},
-    {id:'fisch',n:'Fischhandel',e:'F',c:'#06b6d4',
-     o:[['shop','seafood'],['shop','fishmonger']],k:'Fischerei|Fischhandel|Fischladen'},
-    {id:'gast',n:'Restaurant',e:'R',c:'#f97316',
-     o:[['amenity','restaurant'],['amenity','fast_food']],k:'Gaststatte|Gasthof|Wirtshaus|Imbiss'},
-    {id:'hot',n:'Hotel',e:'H',c:'#0ea5e9',
-     o:[['tourism','hotel'],['amenity','canteen']],k:'Hotel|Catering|Partyservice'},
-    {id:'krank',n:'Krankenhaus',e:'K',c:'#dc2626',
-     o:[['amenity','hospital'],['amenity','clinic']],k:'Krankenhaus|Klinikum|Klinik'},
-    {id:'pflg',n:'Pflegeheim',e:'P',c:'#db2777',
-     o:[['amenity','nursing_home'],['amenity','social_facility']],k:'Pflegeheim|Seniorenheim|Altenheim|AWO|Caritas|Diakonie|Vitanas|Korian|Azurit|Johanniter'},
-    {id:'reha',n:'Reha',e:'R2',c:'#7c3aed',
-     o:[['amenity','rehabilitation']],k:'Rehabilitation|Rehaklinik|Sanatorium'},
-  ];
-  cats.forEach(function(cat){
-    cat.o.forEach(function(pair){
-      p.push('node["'+pair[0]+'"="'+pair[1]+'"](around:'+m+','+lat+','+lng+');');
-      p.push('way["'+pair[0]+'"="'+pair[1]+'"](around:'+m+','+lat+','+lng+');');
+      document.getElementById('map-results').innerHTML=`
+        <div style="color:var(--text2);font-size:13px;text-align:center;padding:8px">${found} Lebensmittelbetriebe gefunden · Tippe auf einen Pin für Details</div>`;
+    })
+    .catch(()=>{
+      document.getElementById('map-results').innerHTML=`<div style="color:var(--red);font-size:13px;text-align:center;padding:8px">Suche fehlgeschlagen. Bitte Internet prüfen.</div>`;
     });
-    if(cat.k){
-      p.push('node["name"~"'+cat.k+'",i](around:'+m+','+lat+','+lng+');');
-      p.push('way["name"~"'+cat.k+'",i](around:'+m+','+lat+','+lng+');');
-    }
-  });
-
-  var query='[out:json][timeout:40];('+p.join('')+');out center tags;';
-  res.innerHTML='<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto 10px"></div><b style="color:var(--blue)">Suche '+km+' km...</b></div>';
-
-  var servers=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
-  var data=null;
-  for(var si=0;si<servers.length;si++){
-    try{
-      var ctrl=new AbortController();
-      var tid=setTimeout(function(){ctrl.abort();},20000);
-      var resp=await fetch(servers[si],{method:'POST',body:'data='+encodeURIComponent(query),signal:ctrl.signal});
-      clearTimeout(tid);
-      if(resp.ok){data=await resp.json();break;}
-    }catch(ee){
-      if(si===servers.length-1){
-        res.innerHTML='<div style="text-align:center;padding:20px;color:var(--red)">Suche fehlgeschlagen.<br><button onclick="mapRunSearch('+lat+','+lng+')" style="margin-top:10px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer">Nochmal</button></div>';
-        return;
-      }
-    }
-  }
-
-  var seen={};
-  _mapData=[];
-  (data&&data.elements||[]).forEach(function(el){
-    var la=el.lat||(el.center&&el.center.lat);
-    var lo=el.lon||(el.center&&el.center.lon);
-    if(!la||!lo)return;
-    var tags=el.tags||{};
-    var name=(tags.name||'').trim();
-    if(!name||name.length<2)return;
-    var key=name.toLowerCase().replace(/\s+/g,'').slice(0,15)+Math.round(la*100);
-    if(seen[key])return;
-    seen[key]=1;
-    var n=name.toLowerCase(),s=tags.shop||'',a=tags.amenity||'',t=tags.tourism||'';
-    var cat=null;
-    if(s==='butcher'||/metzger|fleisch|schlacht/.test(n))cat=cats[0];
-    else if(s==='bakery'||/baecker|konditor/.test(n))cat=cats[1];
-    else if(s==='seafood'||s==='fishmonger'||/fisch/.test(n))cat=cats[2];
-    else if(a==='restaurant'||a==='fast_food'||/gaststatte|gasthof|wirtshaus|imbiss/.test(n))cat=cats[3];
-    else if(t==='hotel'||a==='canteen'||/hotel|catering/.test(n))cat=cats[4];
-    else if(a==='hospital'||a==='clinic'||/krankenhaus|klinikum|klinik/.test(n))cat=cats[5];
-    else if(a==='nursing_home'||a==='social_facility'||/pflegeheim|seniorenheim|altenheim|awo|caritas|diakonie|vitanas|korian|azurit|johanniter/.test(n))cat=cats[6];
-    else if(/reha|rehabilitation|sanatorium/.test(n))cat=cats[7];
-    if(!cat)return;
-    var adr=[tags['addr:street'],tags['addr:housenumber'],tags['addr:postcode'],tags['addr:city']].filter(Boolean).join(' ');
-    var tel=tags.phone||tags['contact:phone']||'';
-    var isLead=(state.leads||[]).some(function(l){return l.firma===name;});
-    var idx=_mapData.length;
-    _mapData.push({name:name,cat:cat,adr:adr,tel:tel,la:la,lo:lo,isLead:isLead});
-    if(_map){
-      var bg=isLead?'#10b981':cat.c;
-      var lbl=isLead?'OK':cat.e;
-      var icon=L.divIcon({html:'<div style="background:'+bg+';width:26px;height:26px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4)">'+lbl+'</div>',iconSize:[26,26],iconAnchor:[13,13]});
-      var mk=L.marker([la,lo],{icon}).addTo(_map);
-      mk._isSearch=true;
-      mk._mapIdx=idx;
-      mk.on('click',mapMarkerClick);
-      _markers.push(mk);
-    }
-  });
-
-  mapShowList(lat,lng,km);
 }
 
-function mapMarkerClick(){
-  var r=_mapData[this._mapIdx];
-  if(!r)return;
-  var div=document.createElement('div');
-  div.style.minWidth='170px';
-  div.innerHTML='<b style="font-size:14px">'+r.name+'</b>';
-  div.innerHTML+='<div style="color:'+r.cat.c+';font-size:11px;font-weight:700;margin:3px 0">'+r.cat.n+'</div>';
-  if(r.adr)div.innerHTML+='<div style="font-size:11px;color:#555">'+r.adr+'</div>';
-  if(r.tel)div.innerHTML+='<div style="font-size:11px"><a href="tel:'+r.tel+'">'+r.tel+'</a></div>';
-  var row=document.createElement('div');
-  row.style.cssText='display:flex;gap:5px;margin-top:8px';
-  var gBtn=document.createElement('a');
-  gBtn.href='https://www.google.de/search?q='+encodeURIComponent(r.name+' '+r.adr);
-  gBtn.target='_blank';
-  gBtn.style.cssText='background:#4285f422;color:#4285f4;border-radius:5px;padding:4px 8px;font-size:11px;text-decoration:none;font-weight:700';
-  gBtn.textContent='Google';
-  row.appendChild(gBtn);
-  if(!r.isLead){
-    var lBtn=document.createElement('button');
-    lBtn.textContent='+Lead';
-    lBtn.style.cssText='background:#1d4ed8;color:#fff;border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:700';
-    lBtn.onclick=(function(idx){return function(){addLeadFromMap(idx);};})(this._mapIdx);
-    row.appendChild(lBtn);
-  } else {
-    var sp=document.createElement('span');
-    sp.style.cssText='color:#10b981;font-size:11px;font-weight:700';
-    sp.textContent='Bereits Lead';
-    row.appendChild(sp);
-  }
-  div.appendChild(row);
-  this.bindPopup(div).openPopup();
-}
-
-function mapShowList(lat,lng,km){
-  var res=document.getElementById('map-results');
-  if(!_mapData.length){
-    res.innerHTML='<div style="text-align:center;padding:24px"><div style="font-size:36px;margin-bottom:8px">🔍</div><b>Nichts gefunden im '+km+' km Radius</b><br><span style="color:var(--text3);font-size:12px">Tipp: Radius vergroessern</span><br><button onclick="mapRunSearch('+lat+','+lng+')" style="margin-top:12px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer">Nochmal</button></div>';
-    return;
-  }
-  var gruppen={};
-  _mapData.forEach(function(r,i){
-    r._idx=i;
-    if(!gruppen[r.cat.id])gruppen[r.cat.id]={cat:r.cat,items:[]};
-    gruppen[r.cat.id].items.push(r);
-  });
-  var container=document.createElement('div');
-  var header=document.createElement('div');
-  header.style.cssText='padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border);display:flex;justify-content:space-between';
-  header.innerHTML='<span style="font-weight:700">'+_mapData.length+' Betriebe</span><span style="color:var(--green);font-size:12px">'+_mapData.filter(function(r){return r.isLead;}).length+' Lead</span>';
-  container.appendChild(header);
-  Object.values(gruppen).forEach(function(g){
-    var grpHdr=document.createElement('div');
-    grpHdr.style.cssText='padding:7px 16px;background:'+g.cat.c+'18;border-bottom:1px solid '+g.cat.c+'33;font-size:11px;font-weight:800;color:'+g.cat.c;
-    grpHdr.textContent=g.cat.n.toUpperCase()+' - '+g.items.length;
-    container.appendChild(grpHdr);
-    g.items.slice(0,30).forEach(function(r){
-      var row=document.createElement('div');
-      row.style.cssText='padding:9px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:'+(r.isLead?'#10b98108':'');
-      var ico=document.createElement('div');
-      ico.style.fontSize='16px';ico.style.flexShrink='0';
-      ico.textContent=r.isLead?'✅':r.cat.e;
-      var info=document.createElement('div');
-      info.style.cssText='flex:1;min-width:0';
-      info.innerHTML='<div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r.name+'</div>'+(r.adr?'<div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r.adr+'</div>':'');
-      var btns=document.createElement('div');
-      btns.style.cssText='display:flex;gap:4px;flex-shrink:0';
-      if(r.tel){
-        var tBtn=document.createElement('a');
-        tBtn.href='tel:'+r.tel;
-        tBtn.style.cssText='background:#10b98122;color:var(--green);border-radius:6px;padding:5px 7px;font-size:12px;text-decoration:none';
-        tBtn.textContent='📞';
-        btns.appendChild(tBtn);
-      }
-      var gBtn=document.createElement('a');
-      gBtn.href='https://www.google.de/search?q='+encodeURIComponent(r.name);
-      gBtn.target='_blank';
-      gBtn.style.cssText='background:#4285f422;color:#4285f4;border-radius:6px;padding:5px 7px;font-size:12px;text-decoration:none';
-      gBtn.textContent='🔍';
-      btns.appendChild(gBtn);
-      if(!r.isLead){
-        var lBtn=document.createElement('button');
-        lBtn.style.cssText='background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:5px 7px;font-size:11px;cursor:pointer;font-weight:700';
-        lBtn.textContent='+Lead';
-        lBtn.onclick=(function(idx){return function(){addLeadFromMap(idx);};})(r._idx);
-        btns.appendChild(lBtn);
-      } else {
-        var ok=document.createElement('span');
-        ok.style.cssText='color:var(--green);font-size:11px;font-weight:700;padding:5px 4px';
-        ok.textContent='✓';
-        btns.appendChild(ok);
-      }
-      row.appendChild(ico);row.appendChild(info);row.appendChild(btns);
-      container.appendChild(row);
-    });
-  });
-  res.innerHTML='';
-  res.appendChild(container);
-}
-
-function addLeadFromMap(idx){
-  var r=_mapData[idx];
-  if(!r){return;}
-  if((state.leads||[]).some(function(l){return l.firma===r.name;})){alert(r.name+' ist bereits ein Lead!');return;}
-  var d=new Date();d.setDate(d.getDate()+3);
-  var parts=(r.adr||'').split(' ');
-  var plz=parts.find(function(p){return /^\d{5}$/.test(p);})||'';
-  var pi=plz?parts.indexOf(plz):-1;
-  state.leads=[...(state.leads||[]),{
-    id:Date.now()+'',firma:r.name,kontakt:'',email:'',telefon:r.tel||'',branche:r.cat?r.cat.n:'',
-    strasse:pi>0?parts.slice(0,pi).join(' '):(r.adr||''),plz:plz,
-    ort:pi>=0?parts.slice(pi+1).join(' '):'',
+function addLeadFromMap(name,branche,lat,lng){
+  state.leads=[...state.leads,{
+    id:Date.now()+'',firma:name,kontakt:'',email:'',telefon:'',branche,
     status:'Neu',prioritaet:'Mittel',naechsterSchritt:'Kontakt aufnehmen',
-    notizen:'Kaltakquise via Karte',erstellt:heute(),letzterKontakt:heute(),lat:r.la||0,lng:r.lo||0
+    notizen:'Via Karte hinzugefügt',erstellt:heute(),letzterKontakt:heute(),lat,lng
   }];
-  state.aufgaben=[...(state.aufgaben||[]),{
-    id:'nf-'+Date.now(),titel:'Kontaktieren: '+r.name,
-    faellig:d.toISOString().split('T')[0],prioritaet:'Mittel',
-    erledigt:false,bezug:r.name,typ:'Nachfass',autoErstellt:true
-  }];
-  save('leads');save('aufgaben');updateBadges();
-  r.isLead=true;
-  alert(r.name+' als Lead gespeichert!');
+  save('leads');updateBadges();
+  alert(`✅ "${name}" als Lead gespeichert!`);
 }
-
-
 
 function showLeadsOnMap(){
   if(!_map)return;
@@ -1397,46 +1137,148 @@ function renderStats(){
 // KATALOG
 // ═══════════════════════════════════════════════════════
 const KATALOG=[
-  // GRAEF – aus Händler-Nettopreisliste 2025 (gültig ab 01.03.2025)
-  {id:'g1',h:'GRAEF',hc:'#1d4ed8',name:'Bistro 1920',kat:'Bistro Line',desc:'Professionelle Schneidmaschine für Gastronomie und Theke. Hartverchromtes Messer.',artnr:'BI1920DE',uvp:'780€',haendler:'513€',specs:[['Typ','Bistro'],['Messer','Hartverchromt'],['Spannung','230V']],url:'https://www.graef.de/de/professional-kitchen/'},
-  {id:'g2',h:'GRAEF',hc:'#1d4ed8',name:'Concept 25',kat:'Concept Line',desc:'Gewerbe-Schneidmaschine Ø 250mm. Hartverchromtes Messer.',artnr:'CO25-ST',uvp:'2.030€',haendler:'1.340€',specs:[['Messer-Ø','250 mm'],['Messer','Hartverchromt']],url:'https://www.graef.de/de/professional-kitchen/'},
-  {id:'g3',h:'GRAEF',hc:'#1d4ed8',name:'Concept 25L (langer Schlitten)',kat:'Concept Line',desc:'Ø 250mm, langer Schlitten 300mm für größere Schnittgüter.',artnr:'CO25-LST',uvp:'2.940€',haendler:'2.010€',specs:[['Messer-Ø','250 mm'],['Schlitten','300 mm']],url:'https://www.graef.de/de/professional-kitchen/'},
-  {id:'g4',h:'GRAEF',hc:'#1d4ed8',name:'Concept 25S (Schrägschneider)',kat:'Concept Line',desc:'Ø 250mm Schrägschneider.',artnr:'CO25SST',uvp:'2.250€',haendler:'1.550€',specs:[['Messer-Ø','250 mm'],['Typ','Schrägschneider']],url:'https://www.graef.de/de/professional-kitchen/'},
-  {id:'g5',h:'GRAEF',hc:'#1d4ed8',name:'Concept 30',kat:'Concept Line',desc:'Leistungsstarke Gewerbe-Schneidmaschine Ø 300mm.',artnr:'CO30-ST',uvp:'2.480€',haendler:'1.650€',specs:[['Messer-Ø','300 mm'],['Messer','Hartverchromt']],url:'https://www.graef.de/de/professional-kitchen/'},
-  {id:'g6',h:'GRAEF',hc:'#1d4ed8',name:'Concept 30S (Schrägschneider)',kat:'Concept Line',desc:'Ø 300mm Schrägschneider.',artnr:'CO30SST',uvp:'2.800€',haendler:'1.850€',specs:[['Messer-Ø','300 mm'],['Typ','Schrägschneider']],url:'https://www.graef.de/de/professional-kitchen/'},
-  {id:'g7',h:'GRAEF',hc:'#1d4ed8',name:'Master 2720',kat:'Master Line',desc:'Vollmetall-Profi-Schneidmaschine Ø 270mm. 230V/400V.',artnr:'MA2723-ST10',uvp:'4.080€',haendler:'2.700€',specs:[['Messer-Ø','270 mm'],['Spannung','230/400V']],url:'https://www.graef.de/de/p/master-2720-kompakt-und-leistungsstark/'},
-  {id:'g8',h:'GRAEF',hc:'#1d4ed8',name:'Master 3020',kat:'Master Line',desc:'Hochleistungs-Profi Ø 300mm. Verschiedene Schlitten verfügbar.',artnr:'MA3023-ST10',uvp:'4.620€',haendler:'3.050€',specs:[['Messer-Ø','300 mm']],url:'https://www.graef.de/de/p/master-3020/'},
-  {id:'g9',h:'GRAEF',hc:'#1d4ed8',name:'Master 3020 mit Waage',kat:'Master Line',desc:'Ø 300mm mit integrierter Waage.',artnr:'MA30W23-ST10',uvp:'5.420€',haendler:'3.640€',specs:[['Messer-Ø','300 mm'],['Waage','Integriert']],url:'https://www.graef.de/de/p/master-3020-w/'},
-  {id:'g10',h:'GRAEF',hc:'#1d4ed8',name:'Master 3020 mit VS-Schlitten',kat:'Master Line',desc:'Ø 300mm mit Vakuum-Schlitten.',artnr:'MA3023-VS30',uvp:'5.250€',haendler:'3.530€',specs:[['Messer-Ø','300 mm'],['Schlitten','VS-Vakuum']],url:'https://www.graef.de/de/p/master-3020/'},
-  {id:'g11',h:'GRAEF',hc:'#1d4ed8',name:'Master 3310',kat:'Master Line',desc:'Top-Modell Ø 330mm.',artnr:'MA3323-ST10',uvp:'4.890€',haendler:'3.210€',specs:[['Messer-Ø','330 mm']],url:'https://www.graef.de/de/master/'},
-  {id:'g12',h:'GRAEF',hc:'#1d4ed8',name:'Master 3370 Schwerkraftschneider',kat:'Master Line',desc:'Ø 330mm Schwerkraftschneider inkl. Halteleiste.',artnr:'MA33S23-ST11',uvp:'4.890€',haendler:'3.220€',specs:[['Messer-Ø','330 mm'],['Typ','Schwerkraft']],url:'https://www.graef.de/de/master/'},
-  {id:'g13',h:'GRAEF',hc:'#1d4ed8',name:'HA 800 Halbautomat',kat:'Halbautomaten',desc:'Ø 300mm Halbautomat inkl. Universalkettenrahmen. Cera³ Messer. Preis inkl. Aufstellung.',artnr:'HA800X',uvp:'11.700€',haendler:'8.179€',specs:[['Messer-Ø','300 mm'],['Typ','Halbautomat'],['System','Cera³']],url:'https://www.graef.de/de/p/ha-800/'},
-  {id:'g14',h:'GRAEF',hc:'#1d4ed8',name:'HA 810 Halbautomat VS-Schlitten',kat:'Halbautomaten',desc:'Ø 300mm mit VS-Schlitten.',artnr:'HA810XM',uvp:'12.300€',haendler:'8.628€',specs:[['Schlitten','VS-Vakuum']],url:'https://www.graef.de/de/p/ha-810/'},
-  {id:'g15',h:'GRAEF',hc:'#1d4ed8',name:'VA 802 Vollautomat',kat:'Vollautomaten',desc:'Vollautomatisch. Einspannlänge 230mm. Cera³. Preis inkl. Aufstellung.',artnr:'VA802X',uvp:'12.990€',haendler:'9.650€',specs:[['Einspannung','230 mm'],['System','Cera³'],['Typ','Vollautomat']],url:'https://www.graef.de/de/p/va-802-fully-automatic/'},
-  {id:'g16',h:'GRAEF',hc:'#1d4ed8',name:'VA 804 Vollautomat',kat:'Vollautomaten',desc:'Einspannlänge 400mm.',artnr:'VA804X',uvp:'13.600€',haendler:'10.130€',specs:[['Einspannung','400 mm']],url:'https://www.graef.de/de/p/va-804-fully-automatic/'},
-  {id:'g17',h:'GRAEF',hc:'#1d4ed8',name:'VA 806 Vollautomat',kat:'Vollautomaten',desc:'Einspannlänge 600mm. Maximale Kapazität.',artnr:'VA806X',uvp:'14.300€',haendler:'10.590€',specs:[['Einspannung','600 mm']],url:'https://www.graef.de/de/p/va-806-fully-automatic/'},
-  {id:'g18',h:'GRAEF',hc:'#1d4ed8',name:'VA 802 + Förderband 680mm',kat:'Vollautomaten mit Förderband',desc:'Einspannlänge 230mm. Drahtförderband kurz 680mm. PLU-Programm.',artnr:'VAE802XFK',uvp:'19.250€',haendler:'14.100€',specs:[['Förderband','680 mm']],url:'https://www.graef.de/de/p/va-806-fb-fully-automatic/'},
-  {id:'g19',h:'GRAEF',hc:'#1d4ed8',name:'VA 806 + Förderband 1300mm',kat:'Vollautomaten mit Förderband',desc:'Einspannlänge 600mm. Drahtförderband lang 1300mm.',artnr:'VAE806XF',uvp:'21.350€',haendler:'15.650€',specs:[['Förderband','1300 mm'],['Einspannung','600 mm']],url:'https://www.graef.de/de/p/va-806-fb-fully-automatic/'},
-  // ZERMAT
-  {id:'z1',h:'ZERMAT',hc:'#059669',name:'JazzVac Atom',kat:'Tischgeräte',desc:'Kompakteste Profi-Vakuummaschine. Busch 3m³/h, Beutel bis 20×30cm, 22kg.',specs:[['Pumpe','Busch 3 m³/h'],['Beutel','bis 20×30 cm'],['Gewicht','22 kg']],url:'https://zermat.es/en/vacuum-packaging-machines/tabletop-packaging-machines/'},
-  {id:'z2',h:'ZERMAT',hc:'#059669',name:'JazzVac 35',kat:'Tischgeräte',desc:'Bestseller. Robust, Wartungsprogramm, bis 1 mbar, 3 Jahre Garantie.',specs:[['Siegelleiste','35 cm'],['Vakuum','bis 1 mbar'],['Garantie','3 Jahre']],url:'https://zermat.es/en/vacuum-packaging-machines/tabletop-packaging-machines/'},
-  {id:'z3',h:'ZERMAT',hc:'#059669',name:'BlueSVac 42',kat:'Tischgeräte',desc:'Top-Seller. Busch 21m³/h, Sensor-Vakuum, Gas-Option, LED-Panel.',specs:[['Pumpe','Busch 21 m³/h'],['Siegelleiste','42 cm'],['Optionen','Gas/LED/Drucker']],url:'https://zermat.es/en/vacuum-packaging-machines/tabletop-packaging-machines/'},
-  {id:'z4',h:'ZERMAT',hc:'#059669',name:'BlueSVac 52',kat:'Tischgeräte',desc:'2 Siegelleisten, Beutel bis 42×60cm, Lebensdauer >25 Jahre.',specs:[['Siegelleisten','2 Stück'],['Beutel','bis 42×60 cm']],url:'https://zermat.es/en/vacuum-packaging-machines/tabletop-packaging-machines/'},
-  {id:'z5',h:'ZERMAT',hc:'#059669',name:'CV 800 Medium',kat:'Industriemaschinen',desc:'2 Vollschichten Dauerbetrieb. Siegelleisten 800+550mm.',specs:[['Abm.','1005×835×1010 mm'],['Siegelleisten','800+550 mm']],url:'https://zermat.es/en/vacuum-packaging-machines/industrial-vacuum-packaging-machines/'},
-  {id:'z6',h:'ZERMAT',hc:'#059669',name:'DC 950 PRO ExtraLarge',kat:'Hochproduktion',desc:'Flaggschiff. Vollautomatisch, maximale Kapazität.',specs:[['Typ','Vollautomatisch'],['Serie','ExtraLarge']],url:'https://zermat.es/en/vacuum-packaging-machines/high-production-vacuum-packaging-machines/'},
-  {id:'z7',h:'ZERMAT',hc:'#059669',name:'Schrumpftunnel (manuell)',kat:'Schrumpfen & Trocknen',desc:'Manuelle Schrumpfanlage für Folienbeutel.',specs:[],url:'https://zermat.es/en/shrinking-and-drying/manual-shrinking/'},
-  {id:'z8',h:'ZERMAT',hc:'#059669',name:'Schrumpftunnel (automatisch)',kat:'Schrumpfen & Trocknen',desc:'Vollautomatische Schrumpfanlage.',specs:[],url:'https://zermat.es/en/shrinking-and-drying/automatic-shrinking/'},
-  {id:'z9',h:'ZERMAT',hc:'#059669',name:'Thermosiegelmaschine TB2',kat:'Thermosiegelmaschinen',desc:'Tray-Sealer für professionelles Verpacken.',specs:[],url:'https://zermat.es/ca/termosegelladores/tb2/'},
-  {id:'z10',h:'ZERMAT',hc:'#059669',name:'Darmfüllmaschine',kat:'Zubehör',desc:'Professionelle Füllmaschine für Wurstdarm.',specs:[],url:'https://zermat.es/en/accessories/casing-filling-machine/'},
-  // BASTRA
-  {id:'b1',h:'BASTRA',hc:'#7c3aed',name:'BastraSmart 500',kat:'Koch- und Räucheranlagen',desc:'7 Funktionen: Heiß-/Kalträuchern, Rösten, Röten, Trocknen, Kochen, Dämpfen. Touchpanel.',specs:[['Funktionen','7 Modi'],['Steuerung','BASTRAProfi500'],['GN-Behälter','2/1 und 1/1']],url:'https://bastra.de/de/produkte/anlagen/bastrasmart-500.html'},
-  {id:'b2',h:'BASTRA',hc:'#7c3aed',name:'Classic Line Modell 1201 RR',kat:'Koch- und Räucheranlagen',desc:'Reibrauch in der Tür, alle Heizungsarten, Brandschutz.',specs:[['Rauch','Reibrauch'],['Heizung','Alle Typen'],['Option','Sichtfenster']],url:'https://bastra.de/de/produkte/anlagen/classic-line.html'},
-  {id:'b3',h:'BASTRA',hc:'#7c3aed',name:'Industrial Line 2000 TF',kat:'Koch- und Räucheranlagen',desc:'Hackspan-Raucherzeuger, 110–400kg Kapazität.',specs:[['Kapazität','110–400 kg'],['Rauch','Hackspan']],url:'https://bastra.de/de/produkte/anlagen/industrial-line.html'},
-  {id:'b4',h:'BASTRA',hc:'#7c3aed',name:'Kochkessel KDN 120',kat:'Kochkessel',desc:'120 Liter, Edelstahl, Elektrisch/Dampf.',specs:[['Volumen','120 Liter'],['Material','Edelstahl'],['Heizung','Elektrisch/Dampf']],url:'https://bastra.de/de/produkte/kochkessel.html'},
-  // DÜKER-REX
-  {id:'d1',h:'DÜKER-REX',hc:'#f59e0b',name:'Kutter Blizzard 45 SLF',kat:'Fleischkutter',desc:'100% Edelstahl Hygienic Design, 6er Messerkopf Düker, stufenlose Drehzahl.',specs:[['Messerkopf','6er Düker'],['Gehäuse','Edelstahl Hygienic'],['Antrieb','Stufenlos']],url:'https://www.dueker-rex.de/en/'},
-  {id:'d2',h:'DÜKER-REX',hc:'#f59e0b',name:'Vakuumfüller RVF 200',kat:'Vakuumfüllmaschinen',desc:'Servotechnik, höchste Gewichtsgenauigkeit, darmschonendes Abdrehen.',specs:[['Typ','Servotechnik'],['Genauigkeit','Höchste']],url:'https://www.dueker-rex.de/en/'},
-  {id:'d3',h:'DÜKER-REX',hc:'#f59e0b',name:'Fleischwolf RK 50 SLF',kat:'Fleischwölfe',desc:'Dreischneidiges Sichelmesser, klares Schnittbild, Nirosta-Edelstahl.',specs:[['Messer','Dreischneidig'],['Gehäuse','Nirosta']],url:'https://www.dueker-rex.de/en/'},
+  // ═══ GRAEF – Händler-Nettopreisliste 2025 (gültig ab 01.03.2025) ═══
+  // Messerschärfer
+  {id:'g001',h:'GRAEF',hc:'#1d4ed8',name:'Diamant-Messerschärfer CC120DE',kat:'Messerschärfer',
+   desc:'Elektrischer Diamant-Messerschärfer mit 3 Schärfstufen. Reiner Nettopreis ohne weitere Abzüge.',
+   artnr:'CC120DE',uvp:'159,66€',haendler:'139,53€',
+   specs:[['Schärfstufen','3'],['Spannung','230V'],['Typ','Elektrisch']]},
+  {id:'g002',h:'GRAEF',hc:'#1d4ed8',name:'Diamant-Messerschärfer SG2000EU',kat:'Messerschärfer',
+   desc:'Elektrischer Diamant-Messerschärfer mit 3 Schärfstufen. Schärfmodul abnehmbar für einfache Reinigung.',
+   artnr:'SG2000EU',uvp:'378,14€',haendler:'325,57€',
+   specs:[['Schärfstufen','3'],['Schärfmodul','abnehmbar'],['Spannung','230V']]},
+  {id:'g003',h:'GRAEF',hc:'#1d4ed8',name:'Diamant-Messerschärfer CC2100DE',kat:'Messerschärfer',
+   desc:'Profi Diamant-Messerschärfer mit 3 Schärfstufen. Schärfmodul abnehmbar.',
+   artnr:'CC2100DE',uvp:'575,00€',haendler:'385,00€',
+   specs:[['Schärfstufen','3'],['Schärfmodul','abnehmbar'],['Spannung','230V']]},
+  // Bistro Line
+  {id:'g010',h:'GRAEF',hc:'#1d4ed8',name:'Twin Cut Brötchenschneider',kat:'Bistro Line',
+   desc:'Elektrischer Brötchenschneider für professionellen Einsatz. Wechselmesser aus Edelstahl erhältlich.',
+   artnr:'142050',uvp:'499,00€',haendler:'358,11€',
+   specs:[['Spannung','230V'],['Typ','Brötchenschneider']]},
+  {id:'g011',h:'GRAEF',hc:'#1d4ed8',name:'Bistro 1920 – Messer hartverchromt',kat:'Bistro Line',
+   desc:'Professionelle Aufschnittmaschine der Bistro Line. Messer hartverchromt. Auch als Variante mit Brot-Messer (BI1920DE1, €525) oder Käse-Messer antihaft (BI1920DE2, €525) erhältlich.',
+   artnr:'BI1920DE',uvp:'780,00€',haendler:'513,00€',
+   specs:[['Spannung','230V'],['Messer','hartverchromt'],['Akzentfarbe','schwarz/weiß/rot']]},
+  // Concept Line
+  {id:'g020',h:'GRAEF',hc:'#1d4ed8',name:'Concept 25 – Messer hartverchromt',kat:'Concept Line',
+   desc:'Concept Line Aufschnittmaschine 25cm. Messer hartverchromt. Akzentfarbe schwarz (Standard), weiß oder rot ohne Aufpreis. Halteleiste optional (+€157).',
+   artnr:'CO25-ST',uvp:'2.030,00€',haendler:'1.340,00€',
+   specs:[['Spannung','230V'],['Messerdurchmesser','250mm'],['Messer','hartverchromt']]},
+  {id:'g021',h:'GRAEF',hc:'#1d4ed8',name:'Concept 25 – Brot-Messer',kat:'Concept Line',
+   desc:'Concept 25 mit spezialverzahntem Brot-Messer antihaft. 230V.',
+   artnr:'CO25-BST',uvp:'2.090,00€',haendler:'1.370,00€',
+   specs:[['Spannung','230V'],['Messer','Brot, spezialverzahnt, antihaft']]},
+  {id:'g022',h:'GRAEF',hc:'#1d4ed8',name:'Concept 25L – Langer Schlitten 300mm',kat:'Concept Line',
+   desc:'Concept Line 25cm mit langem Schlitten 300mm. Messer hartverchromt. Für große Produkte geeignet.',
+   artnr:'CO25-LST',uvp:'2.940,00€',haendler:'2.010,00€',
+   specs:[['Spannung','230V'],['Schlitten','lang 300mm'],['Messer','hartverchromt']]},
+  {id:'g023',h:'GRAEF',hc:'#1d4ed8',name:'Concept 25S – Schrägschneider',kat:'Concept Line',
+   desc:'Concept 25 als Schrägschneider. Messer hartverchromt. 230V.',
+   artnr:'CO25SST',uvp:'2.250,00€',haendler:'1.550,00€',
+   specs:[['Spannung','230V'],['Bauform','Schrägschneider'],['Messer','hartverchromt']]},
+  {id:'g024',h:'GRAEF',hc:'#1d4ed8',name:'Concept 30 – Messer hartverchromt',kat:'Concept Line',
+   desc:'Concept Line Aufschnittmaschine 30cm. Messer hartverchromt. Varianten mit Brot- oder Käse-Messer verfügbar. 230V.',
+   artnr:'CO30-ST',uvp:'2.480,00€',haendler:'1.650,00€',
+   specs:[['Spannung','230V'],['Messerdurchmesser','300mm'],['Messer','hartverchromt']]},
+  {id:'g025',h:'GRAEF',hc:'#1d4ed8',name:'Concept 30S – Schrägschneider',kat:'Concept Line',
+   desc:'Concept 30 als Schrägschneider. Messer hartverchromt. 230V.',
+   artnr:'CO30SST',uvp:'2.800,00€',haendler:'1.850,00€',
+   specs:[['Spannung','230V'],['Bauform','Schrägschneider']]},
+  // Master Line
+  {id:'g030',h:'GRAEF',hc:'#1d4ed8',name:'Master 2720 – Standard',kat:'Master Line',
+   desc:'Profi Aufschnittmaschine Master Line, 230V und 400V verfügbar. Mit Halteleiste: MA2723-ST11 (€2.830). Eloxal-Ausführung ohne Aufpreis.',
+   artnr:'MA2723-ST10',uvp:'4.080,00€',haendler:'2.700,00€',
+   specs:[['Spannung','230V / 400V'],['Messerdurchmesser','270mm']]},
+  {id:'g031',h:'GRAEF',hc:'#1d4ed8',name:'Master 3020 – Standard',kat:'Master Line',
+   desc:'Profi Aufschnittmaschine Master Line 30cm. 230V/400V. Optionen: Halteleiste (€3.200), VS-Schlitten (€3.530), HS-Schlitten (€3.700), LS-Schlitten Lachs (€4.100), mit Waage (€3.640).',
+   artnr:'MA3023-ST10',uvp:'4.620,00€',haendler:'3.050,00€',
+   specs:[['Spannung','230V / 400V'],['Messerdurchmesser','300mm'],['Metzgerschnitteinsatz','optional']]},
+  {id:'g032',h:'GRAEF',hc:'#1d4ed8',name:'Master 3020 mit Waage',kat:'Master Line',
+   desc:'Master 3020 mit integrierter Waage. 230V/400V. Varianten mit VS/HS/LS-Schlitten verfügbar.',
+   artnr:'MA30W23-ST10',uvp:'5.420,00€',haendler:'3.640,00€',
+   specs:[['Spannung','230V / 400V'],['Waage','integriert']]},
+  {id:'g033',h:'GRAEF',hc:'#1d4ed8',name:'Master 3020 VS-Schlitten',kat:'Master Line',
+   desc:'Master 3020 mit VS-Schlitten (Vakuumschlitten). Optional mit Metzgerschnitteinsatz.',
+   artnr:'MA3023-VS30',uvp:'5.250,00€',haendler:'3.530,00€',
+   specs:[['Spannung','230V / 400V'],['Schlitten','VS (Vakuum)']]},
+  {id:'g034',h:'GRAEF',hc:'#1d4ed8',name:'Master 3310 – Standard',kat:'Master Line',
+   desc:'Profi Aufschnittmaschine Master Line 33cm, 230V/400V. Optionen: DS-Schlitten (€3.400), EA-Schlitten (€4.070), mit Waage (€3.800).',
+   artnr:'MA3323-ST10',uvp:'4.890,00€',haendler:'3.210,00€',
+   specs:[['Spannung','230V / 400V'],['Messerdurchmesser','330mm']]},
+  {id:'g035',h:'GRAEF',hc:'#1d4ed8',name:'Master 3370 Schwerkraftschneider',kat:'Master Line',
+   desc:'Schwerkraftschneider Master 3370, inkl. Halteleiste. 230V/400V. Variante 18° Schlitten (€3.300) oder SA-Restehalter (€3.490).',
+   artnr:'MA33S23-ST11',uvp:'4.890,00€',haendler:'3.220,00€',
+   specs:[['Spannung','230V / 400V'],['Bauform','Schwerkraftschneider']]},
+  {id:'g036',h:'GRAEF',hc:'#1d4ed8',name:'SA 3370 – Schneidautomat',kat:'Master Line',
+   desc:'Vollautomatischer Schwerkraftschneider SA 3370. 230V/400V. Inkl. SA-Restehalter.',
+   artnr:'SA33S23-ST31',uvp:'8.650,00€',haendler:'5.720,00€',
+   specs:[['Spannung','230V / 400V'],['Bauform','Schneidautomat']]},
+  // AutoMaster Line – Halbautomaten
+  {id:'g040',h:'GRAEF',hc:'#1d4ed8',name:'HA 800 Halbautomat',kat:'AutoMaster Line',
+   desc:'Halbautomatische Schneidemaschine HA 800. Cera³-Ausführung, Messer hartverchromt. Inkl. Universalkettenrahmen. Preis inkl. Aufstellung und Einweisung. 230V/400V. Optionen: Käse, Fleisch, Entenbrust-Kettenrahmen ohne Aufpreis.',
+   artnr:'HA800X',uvp:'11.700,00€',haendler:'8.179,65€',
+   specs:[['Spannung','230V / 400V'],['Ausführung','Cera³'],['Einweisung','inkl.']]},
+  {id:'g041',h:'GRAEF',hc:'#1d4ed8',name:'HA 810 Halbautomat mit VS-Schlitten',kat:'AutoMaster Line',
+   desc:'Halbautomatische Schneidemaschine HA 810 mit VS-Schlitten. Cera³, inkl. Universalkettenrahmen und Aufstellung/Einweisung.',
+   artnr:'HA810XM',uvp:'12.300,00€',haendler:'8.628,59€',
+   specs:[['Spannung','230V / 400V'],['Schlitten','VS'],['Ausführung','Cera³']]},
+  // AutoMaster Line – Vollautomaten mit Tablett
+  {id:'g050',h:'GRAEF',hc:'#1d4ed8',name:'VA 802 – Einspannlänge 230mm',kat:'AutoMaster Line',
+   desc:'Vollautomatische Schneidemaschine mit Tablett. Einspannlänge 230mm. Cera³, inkl. Universalkettenrahmen und Aufstellung/Einweisung. Variante mit Halbautomat-Funktion: VA802H (€9.850).',
+   artnr:'VA802X',uvp:'12.990,00€',haendler:'9.650,00€',
+   specs:[['Einspannlänge','230mm'],['Ausführung','Cera³'],['Spannung','230V / 400V']]},
+  {id:'g051',h:'GRAEF',hc:'#1d4ed8',name:'VA 804 – Einspannlänge 400mm',kat:'AutoMaster Line',
+   desc:'Vollautomatische Schneidemaschine mit Tablett. Einspannlänge 400mm. Cera³, inkl. Universalkettenrahmen.',
+   artnr:'VA804X',uvp:'13.600,00€',haendler:'10.130,00€',
+   specs:[['Einspannlänge','400mm'],['Ausführung','Cera³']]},
+  {id:'g052',h:'GRAEF',hc:'#1d4ed8',name:'VA 806 – Einspannlänge 600mm',kat:'AutoMaster Line',
+   desc:'Vollautomatische Schneidemaschine mit Tablett. Einspannlänge 600mm. Cera³, inkl. Universalkettenrahmen.',
+   artnr:'VA806X',uvp:'14.300,00€',haendler:'10.590,00€',
+   specs:[['Einspannlänge','600mm'],['Ausführung','Cera³']]},
+  // Vollautomaten mit Förderband
+  {id:'g060',h:'GRAEF',hc:'#1d4ed8',name:'VA 802 + Drahtförderband 680mm',kat:'AutoMaster Line',
+   desc:'Vollautomat VA 802 mit kurzem Drahtförderband 680mm. Eloxal-Ausführung. Inkl. PLU-Programm. Variante lang 1300mm (€14.650) oder Silikonförderband 480mm (€15.000).',
+   artnr:'VAE802XFK',uvp:'19.250,00€',haendler:'14.100,00€',
+   specs:[['Förderband','Draht, kurz 680mm'],['Ausführung','Eloxal'],['PLU','inkl.']]},
+  {id:'g061',h:'GRAEF',hc:'#1d4ed8',name:'VA 804 + Drahtförderband 680mm',kat:'AutoMaster Line',
+   desc:'Vollautomat VA 804 (400mm) mit kurzem Drahtförderband 680mm. Eloxal, inkl. PLU. Variante lang (€15.150) oder Silikon (€15.500).',
+   artnr:'VAE804XFK',uvp:'19.950,00€',haendler:'14.600,00€',
+   specs:[['Einspannlänge','400mm'],['Förderband','Draht, kurz 680mm']]},
+  {id:'g062',h:'GRAEF',hc:'#1d4ed8',name:'VA 806 + Drahtförderband 680mm',kat:'AutoMaster Line',
+   desc:'Vollautomat VA 806 (600mm) mit kurzem Drahtförderband 680mm. Eloxal, inkl. PLU.',
+   artnr:'VAE806XFK',uvp:'20.550,00€',haendler:'15.100,00€',
+   specs:[['Einspannlänge','600mm'],['Förderband','Draht, kurz 680mm']]},
+  // Maschinentische
+  {id:'g070',h:'GRAEF',hc:'#1d4ed8',name:'Maschinentisch Mati 1 – feststehend',kat:'Zubehör',
+   desc:'Edelstahl-Maschinentisch, feststehend. Passend für HA/VA-Serien.',
+   artnr:'Mati 1',uvp:'840,00€',haendler:'641,74€',
+   specs:[['Material','Edelstahl'],['Typ','feststehend'],['Passend für','HA/VA']]},
+  {id:'g071',h:'GRAEF',hc:'#1d4ed8',name:'Maschinentisch Mati 4 – fahrbar',kat:'Zubehör',
+   desc:'Edelstahl-Maschinentisch, fahrbar. Passend für HA/VA-Serien.',
+   artnr:'Mati 4',uvp:'1.380,00€',haendler:'1.072,75€',
+   specs:[['Material','Edelstahl'],['Typ','fahrbar'],['Passend für','HA/VA']]},
+  // Ersatzmesser
+  {id:'g080',h:'GRAEF',hc:'#1d4ed8',name:'Ersatzmesser Master 2720',kat:'Ersatzmesser',
+   desc:'Ersatzmesser glatt für Master 2720 / G127.',
+   artnr:'143946',uvp:'180,00€',haendler:'120,00€',
+   specs:[['Messerart','glatt'],['Passend für','Master 2720, G127']]},
+  {id:'g081',h:'GRAEF',hc:'#1d4ed8',name:'Ersatzmesser Master 3020 – glatt',kat:'Ersatzmesser',
+   desc:'Ersatzmesser glatt für Master 3020 / G130 / HA 800 / VA800.',
+   artnr:'143942',uvp:'255,00€',haendler:'165,00€',
+   specs:[['Messerart','glatt'],['Passend für','Master 3020, HA 800, VA800']]},
+  {id:'g082',h:'GRAEF',hc:'#1d4ed8',name:'Ersatzmesser Master 3020 – Antihaft',kat:'Ersatzmesser',
+   desc:'Ersatzmesser glatt antihaft-beschichtet für Master 3020 / HA 800.',
+   artnr:'143943',uvp:'295,00€',haendler:'195,00€',
+   specs:[['Messerart','glatt, antihaft'],['Passend für','Master 3020, HA 800']]},
+  {id:'g083',h:'GRAEF',hc:'#1d4ed8',name:'Ersatzmesser Master 3310/SA330',kat:'Ersatzmesser',
+   desc:'Ersatzmesser glatt für Master 3310 / 3304 / SA330 / VA400.',
+   artnr:'3300434',uvp:'285,00€',haendler:'190,00€',
+   specs:[['Messerart','glatt'],['Passend für','Master 3310, SA330, VA400']]},
+  {id:'g084',h:'GRAEF',hc:'#1d4ed8',name:'Ersatzmesser Master 3370/SA 3370',kat:'Ersatzmesser',
+   desc:'Ersatzmesser glatt für Master 3370 / SA 3370.',
+   artnr:'370434',uvp:'285,00€',haendler:'190,00€',
+   specs:[['Messerart','glatt'],['Passend für','Master 3370, SA 3370']]},
 ];
 
 function renderKatalog(){
@@ -1461,7 +1303,8 @@ function filterKatalog(h,btn){
 
 function renderKatalogList(){
   const q=(document.getElementById('kat-search')?.value||'').toLowerCase();
-  const list=KATALOG.filter(m=>(_katFilter==='Alle'||m.h===_katFilter)&&(!q||m.name.toLowerCase().includes(q)||m.desc.toLowerCase().includes(q)));
+  const alleKat=[...KATALOG,...(state.katalogExtra||[]).map(k=>({...k,h:k.hersteller,hc:"#6b7280",kat:k.typ,desc:k.beschreibung,artnr:k.artikelnr,uvp:k.uvp?(k.uvp.toFixed?k.uvp.toFixed(2)+"€":k.uvp):"",haendler:k.preis?(k.preis.toFixed?k.preis.toFixed(2)+"€":k.preis):"",specs:[]}))]; 
+  const list=alleKat.filter(m=>(_katFilter==='Alle'||m.h===_katFilter)&&(!q||m.name.toLowerCase().includes(q)||m.desc.toLowerCase().includes(q)));
   document.getElementById('kat-list').innerHTML=list.map(m=>`
     <div class="card" style="border-color:${m.hc}44;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -2632,6 +2475,7 @@ function renderBesuche(){
               <div style="color:var(--text3);font-size:12px">📅 ${b.datum}${b.uhrzeit?' 🕐 '+b.uhrzeit:''} ${b.kontakt?'· 👤 '+b.kontakt:''}</div>
             </div>
             <div style="display:flex;gap:6px">
+              <button onclick="besuchZuLead('${b.id}')" style="background:#10b98122;color:var(--green);border:1px solid #10b98144;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700">👤 Lead/Angebot</button>
               <button onclick="besuchAlsPDF('${b.id}')" style="background:#3b82f622;color:var(--blue);border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700">📄 PDF</button>
               <button onclick="openBesuchForm('${b.id}')" class="btn btn-sm btn-secondary">✏️</button>
               <button onclick="deleteBesuch('${b.id}')" class="btn btn-sm btn-danger">🗑</button>
@@ -3041,6 +2885,315 @@ function gebrauchtDeleteExtra(id){
 }
 
 
+function renderSpesen(){
+  const spesen = state.spesen || [];
+  const el = document.getElementById('screen-spesen');
+
+  // Current selected month (default = current month)
+  if(!window._spesenMonat){
+    const now = new Date();
+    window._spesenMonat = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  }
+
+  // Build month list from Jan 2026 to current month
+  const monate = [];
+  const start = new Date(2026, 0, 1);
+  const now2 = new Date();
+  const cur = new Date(now2.getFullYear(), now2.getMonth(), 1);
+  let d = new Date(start);
+  while(d <= cur){
+    monate.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+    d.setMonth(d.getMonth()+1);
+  }
+
+  const sel = window._spesenMonat;
+  const monatSpesen = spesen.filter(s => s.datum && s.datum.slice(0,7) === sel);
+  const gesamt = monatSpesen.reduce((s,x) => s+(x.betrag||0), 0);
+
+  const MONATE_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const monatLabel = m => {
+    const [y,mo] = m.split('-');
+    return MONATE_DE[parseInt(mo)-1]+' '+y;
+  };
+
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h2 style="font-size:20px;font-weight:800">💰 Tagesspesen</h2>
+        <button onclick="spesenAlsPDF('${sel}')" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📄 ${monatLabel(sel)} drucken</button>
+      </div>
+
+      <!-- Monatsauswahl -->
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;scrollbar-width:none">
+        ${[...monate].reverse().map(m=>`
+          <button onclick="window._spesenMonat='${m}';renderSpesen()"
+            style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:2px solid ${m===sel?'var(--blue)':'var(--border)'};background:${m===sel?'var(--blue)':'var(--card)'};color:${m===sel?'#fff':'var(--text2)'}">
+            ${monatLabel(m)}
+          </button>`).join('')}
+      </div>
+
+      <!-- Monats-Summary -->
+      <div style="background:${gesamt>0?'#10b98122':'var(--input)'};border:1px solid ${gesamt>0?'#10b98144':'var(--border)'};border-radius:12px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;color:var(--text3)">${monatLabel(sel)}</div>
+          <div style="font-size:24px;font-weight:800;color:${gesamt>0?'var(--green)':'var(--text3)'}">${gesamt>0?'€'+gesamt.toFixed(2):'Noch keine Einträge'}</div>
+          <div style="font-size:12px;color:var(--text3)">${monatSpesen.length} ${monatSpesen.length===1?'Eintrag':'Einträge'}</div>
+        </div>
+        <div style="font-size:40px">💰</div>
+      </div>
+
+      <!-- Neue Spese erfassen -->
+      <div class="card" style="margin-bottom:16px;border-color:#10b98144">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--green)">+ Spese erfassen</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">DATUM</div>
+            <input type="date" id="sp-datum" value="${sel+'-01'}" min="${sel+'-01'}" max="${sel+'-31'}"
+              style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;box-sizing:border-box"/>
+          </div>
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">ART</div>
+            <select id="sp-art" onchange="spesenUpdateBetrag()"
+              style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+              <option value="8h">8 Stunden – €14,00</option>
+              <option value="24h">24 Stunden – €28,00</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">ANLASS</div>
+          <select id="sp-anlass" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px">
+            <option>Akquise</option>
+            <option>Vorführung</option>
+            <option>Wartung</option>
+            <option>Service</option>
+            <option>Einweisung</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">STARTORT</div>
+            <input id="sp-start" placeholder="z.B. Blankenheim" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;box-sizing:border-box"/>
+          </div>
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">ZIELORT</div>
+            <input id="sp-ziel" placeholder="z.B. Köln" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;box-sizing:border-box"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">ABFAHRT</div>
+            <input type="time" id="sp-abfahrt" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;box-sizing:border-box"/>
+          </div>
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">RÜCKKEHR</div>
+            <input type="time" id="sp-rueck" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;box-sizing:border-box"/>
+          </div>
+        </div>
+        <div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">KUNDE / NOTIZ</div>
+          <input id="sp-notiz" placeholder="z.B. Engel GmbH Blankenheim" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;box-sizing:border-box"/>
+        </div>
+        <div style="background:var(--blue-dark);color:#fff;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:700;text-align:center;margin-bottom:10px" id="sp-betrag-preview">
+          Betrag: €14,00 (8 Stunden)
+        </div>
+        <button onclick="saveSpese()" style="width:100%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;font-size:15px">✅ Spese speichern</button>
+      </div>
+
+      <!-- Einträge dieses Monats -->
+      ${monatSpesen.length ? `
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Einträge ${monatLabel(sel)}</div>
+      ${monatSpesen.sort((a,b)=>a.datum.localeCompare(b.datum)).map(s=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
+          <div style="width:36px;height:36px;border-radius:18px;background:#10b98122;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">💰</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${s.anlass} · ${s.art==='8h'?'8 Stunden':'24 Stunden'}</div>
+            <div style="font-size:12px;color:var(--text3)">📅 ${s.datum}${s.abfahrt?' · '+s.abfahrt+' – '+(s.rueck||''):''}</div>
+            ${s.start||s.ziel?`<div style="font-size:12px;color:var(--text3)">${s.start||''} → ${s.ziel||''}</div>`:''}
+            ${s.notiz?`<div style="font-size:12px;color:var(--text3)">${s.notiz}</div>`:''}
+          </div>
+          <div style="font-weight:800;font-size:16px;color:var(--green);flex-shrink:0">€${(s.betrag||0).toFixed(2)}</div>
+          <button onclick="deleteSpese('${s.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;flex-shrink:0">🗑</button>
+        </div>`).join('')}
+      ` : ''}
+    </div>`;
+}
+
+function spesenUpdateBetrag(){
+  const art = document.getElementById('sp-art')?.value;
+  const el = document.getElementById('sp-betrag-preview');
+  if(el) el.textContent = art==='8h' ? 'Betrag: €14,00 (8 Stunden)' : 'Betrag: €28,00 (24 Stunden)';
+}
+
+function saveSpese(){
+  const datum = document.getElementById('sp-datum')?.value;
+  if(!datum){alert('Bitte Datum wählen');return;}
+  const art = document.getElementById('sp-art')?.value || '8h';
+  const s = {
+    id: Date.now()+'',
+    datum,
+    art,
+    betrag: art==='8h' ? 14 : 28,
+    anlass: document.getElementById('sp-anlass')?.value || '',
+    start: document.getElementById('sp-start')?.value || '',
+    ziel: document.getElementById('sp-ziel')?.value || '',
+    abfahrt: document.getElementById('sp-abfahrt')?.value || '',
+    rueck: document.getElementById('sp-rueck')?.value || '',
+    notiz: document.getElementById('sp-notiz')?.value || ''
+  };
+  state.spesen = [...(state.spesen||[]), s];
+  save('spesen');
+  renderSpesen();
+}
+
+function deleteSpese(id){
+  if(confirm('Eintrag löschen?')){
+    state.spesen = (state.spesen||[]).filter(s=>s.id!==id);
+    save('spesen');
+    renderSpesen();
+  }
+}
+
+function spesenAlsPDF(monat){
+  monat = monat || window._spesenMonat;
+  const spesen = (state.spesen||[]).filter(s=>s.datum&&s.datum.slice(0,7)===monat).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const gesamt = spesen.reduce((s,x)=>s+(x.betrag||0),0);
+  const ziele = state.ziele||{};
+  const MONATE_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const [y,mo] = monat.split('-');
+  const monatLabel = MONATE_DE[parseInt(mo)-1]+' '+y;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Spesen ${monatLabel}</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#1a1a2e}
+.header{background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border-radius:12px;padding:24px;margin-bottom:24px}
+.header h1{margin:0 0 4px;font-size:22px}.header p{margin:0;opacity:.85;font-size:13px}
+table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
+th{background:#1d4ed8;color:#fff;padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:9px 12px;border-bottom:1px solid #e2e8f0}
+tr:nth-child(even){background:#f8fafc}
+.total-row td{font-weight:800;font-size:15px;color:#10b981;border-top:2px solid #1d4ed8;background:#f0fdf4}
+.footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}
+.sig{margin-top:40px;display:flex;justify-content:space-between}
+.sig-line{width:200px;border-top:1px solid #1a1a2e;padding-top:8px;font-size:12px;color:#64748b}
+@media print{.no-print{display:none}}
+</style></head><body>
+<div class="header">
+  <h1>💰 Spesenabrechnungen ${monatLabel}</h1>
+  <p>${ziele.name||'Robert Kutschke'} · AS Technical Solutions GmbH</p>
+</div>
+<table>
+<tr><th>Datum</th><th>Anlass</th><th>Art</th><th>Von</th><th>Nach</th><th>Abfahrt</th><th>Rückkehr</th><th>Notiz</th><th style="text-align:right">Betrag</th></tr>
+${spesen.map(s=>`<tr>
+<td>${s.datum}</td>
+<td>${s.anlass}</td>
+<td>${s.art==='8h'?'8h &gt; 8 Std.':'24h ganzt.'}</td>
+<td>${s.start||'–'}</td>
+<td>${s.ziel||'–'}</td>
+<td>${s.abfahrt||'–'}</td>
+<td>${s.rueck||'–'}</td>
+<td>${s.notiz||'–'}</td>
+<td style="text-align:right;font-weight:700;color:#10b981">€${(s.betrag||0).toFixed(2)}</td>
+</tr>`).join('')}
+<tr class="total-row">
+<td colspan="8">Gesamt ${monatLabel}</td>
+<td style="text-align:right">€${gesamt.toFixed(2)}</td>
+</tr>
+</table>
+<div class="sig">
+  <div class="sig-line">Datum, Ort</div>
+  <div class="sig-line">Unterschrift Mitarbeiter</div>
+  <div class="sig-line">Unterschrift Vorgesetzter</div>
+</div>
+<div class="footer">AS Technical Solutions GmbH · Erstellt am ${new Date().toLocaleString('de-DE')} · Vertrieb Pro</div>
+<div class="no-print" style="text-align:center;margin-top:20px">
+<button onclick="window.print()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Drucken / Als PDF speichern</button>
+</div></body></html>`;
+  const w = window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+}
+
+
+
+function besuchZuLead(id){
+  const b=(state.besuche||[]).find(x=>x.id===id);
+  if(!b)return;
+  const ex=(state.leads||[]).find(l=>l.firma===b.firma);
+  if(ex){
+    if(confirm('Lead "'+b.firma+'" existiert.\nAngebot erstellen?')){
+      showTab('angebote');
+      setTimeout(()=>{openAngebotForm(null);setTimeout(()=>{const f=document.getElementById('ag-firma');if(f)f.value=b.firma;},300);},400);
+    }
+    return;
+  }
+  const d=new Date();d.setDate(d.getDate()+3);
+  state.leads=[...(state.leads||[]),{
+    id:Date.now()+'',firma:b.firma,kontakt:b.kontakt||'',email:'',telefon:'',branche:'',
+    status:'Qualifiziert',prioritaet:'Hoch',
+    naechsterSchritt:b.naechsteSchritte||'Angebot erstellen',
+    notizen:'Besuch '+b.datum+(b.interesse?'\nInteresse: '+b.interesse:''),
+    erstellt:heute(),letzterKontakt:b.datum||heute()
+  }];
+  state.aufgaben=[...(state.aufgaben||[]),{
+    id:'bl-'+Date.now(),titel:'Angebot: '+b.firma,
+    faellig:d.toISOString().split('T')[0],prioritaet:'Hoch',
+    erledigt:false,bezug:b.firma,typ:'Angebot',autoErstellt:true
+  }];
+  save('leads');save('aufgaben');updateBadges();
+  if(confirm('Lead "'+b.firma+'" angelegt!\nJetzt Angebot erstellen?')){
+    showTab('angebote');
+    setTimeout(()=>{openAngebotForm(null);setTimeout(()=>{const f=document.getElementById('ag-firma');if(f)f.value=b.firma;},300);},400);
+  }
+}
+
+
+function katalogAddManual(){
+  openSheet(`
+    <div class="sheet-title">📋 Produkt hinzufügen</div>
+    <div style="background:#3b82f611;border:1px solid #3b82f633;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--blue)">
+      Füge Produkte aus anderen Katalogen hinzu. Du kannst einen Link oder eine kurze Beschreibung einfügen – alles wird auf Deutsch gespeichert.
+    </div>
+    <div class="field"><label>Hersteller *</label>
+      <select id="kp-hersteller" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px">
+        <option>GRAEF</option><option>ZERMAT</option><option>BASTRA</option><option>DÜKER-REX</option><option>Sonstige</option>
+      </select>
+    </div>
+    <div class="field"><label>Produkttyp</label>
+      <select id="kp-typ" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px">
+        <option>Aufschnittmaschine</option><option>Messerschärfer</option><option>Halbautomat</option><option>Vollautomat</option>
+        <option>Mischer</option><option>Kutter</option><option>Füllmaschine</option><option>Vakuumierer</option>
+        <option>Räucheranlage</option><option>Ersatzteile</option><option>Zubehör</option><option>Sonstige</option>
+      </select>
+    </div>
+    <div class="field"><label>Produktname *</label><input id="kp-name" placeholder="z.B. ZERMAT VC 200 Vakuumierer"/></div>
+    <div class="field"><label>Artikel-Nr.</label><input id="kp-artnr" placeholder="z.B. ZM-VC200"/></div>
+    <div class="field"><label>Beschreibung (Deutsch)</label>
+      <textarea id="kp-beschr" rows="4" placeholder="Technische Details, Ausstattung, Besonderheiten auf Deutsch..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1"><label>UVP (€)</label><input id="kp-uvp" type="number" placeholder="0.00"/></div>
+      <div class="field" style="flex:1"><label>Händlerpreis (€)</label><input id="kp-preis" type="number" placeholder="0.00"/></div>
+    </div>
+    <div class="field"><label>Link (URL)</label><input id="kp-link" type="url" placeholder="https://..."/></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
+      <button class="btn btn-primary btn-full" onclick="katalogSaveManual()">💾 Speichern</button>
+    </div>`);
+}
+
+function katalogSaveManual(){
+  const name=document.getElementById('kp-name')?.value?.trim();
+  if(!name){alert('Produktname ist Pflichtfeld');return;}
+  const p={
+    id:'km-'+Date.now(),
+    hersteller:document.getElementById('kp-hersteller')?.value||'',
+    typ:document.getElementById('kp-typ')?.value||'',
+    name,
+    artikelnr:document.getElementById('kp-artnr')?.value||'',
+    beschreibung:document.getElementById('kp-beschr')?.value||'',
+    uvp:parseFloat(document.getElementById('kp-uvp')?.value||0),
+    preis:parseFloat(document.getElementById('kp-preis')?.value||0),
+    link:document.getElementById('kp-link')?.value||''
+  };
+  if(!state.katalogExtra)state.katalogExtra=[];
+  state.katalogExtra=[...state.katalogExtra,p];
+  save('katalogExtra');
+  closeSheet();
+  renderKatalog();
+  alert('Produkt gespeichert: '+name);
+}
 // ═══════════════════════════════════════════════════════
 // RENDERS MAP
 // ═══════════════════════════════════════════════════════
@@ -3056,11 +3209,16 @@ const renders={
 async function init(){
   // App startet IMMER sofort - Firebase ist optional
   const load=async()=>{
-    const [l,a,t,v,anf]=await Promise.all([DB.get('leads'),DB.get('angebote'),DB.get('aufgaben'),DB.get('videos'),DB.get('anfragen')]);
+    const [l,a,t,v,anf,bes,zie,spe,gex]=await Promise.all([DB.get('leads'),DB.get('angebote'),DB.get('aufgaben'),DB.get('videos'),DB.get('anfragen'),DB.get('besuche'),DB.get('ziele'),DB.get('spesen'),DB.get('gebrauchtExtra')]);
     state.leads=l||DEMO_LEADS;
     state.angebote=a||DEMO_ANGEBOTE;
     state.aufgaben=t||DEMO_AUFGABEN;
     state.videos=v||[];
+    state.besuche=bes||[];
+    state.ziele=zie||{};
+    state.spesen=spe||[];
+    state.gebrauchtExtra=gex||[];
+    state.katalogExtra=(await DB.get('katalogExtra'))||[];
     state.anfragen=anf||[
   {id:'anf1',firma:'Engel GmbH Blankenheim',strasse:'Ahrstr. 32',plz:'53945',ort:'Blankenheim',
    telefon:'(02449) 1047',email:'metzgerei-engel@t-online.de',interesse:'GRAEF (Aufschnittmaschinen) – Master Linie',
@@ -3083,7 +3241,7 @@ async function init(){
   await load();
   // Firebase upgrade when available
   window.addEventListener('fb-ready', async()=>{
-    const [l,a,t,v,anf]=await Promise.all([DB.get('leads'),DB.get('angebote'),DB.get('aufgaben'),DB.get('videos'),DB.get('anfragen')]);
+    const [l,a,t,v,anf,bes,zie,spe,gex]=await Promise.all([DB.get('leads'),DB.get('angebote'),DB.get('aufgaben'),DB.get('videos'),DB.get('anfragen'),DB.get('besuche'),DB.get('ziele'),DB.get('spesen'),DB.get('gebrauchtExtra')]);
     if(l)state.leads=l;
     if(a)state.angebote=a;
     if(t)state.aufgaben=t;
