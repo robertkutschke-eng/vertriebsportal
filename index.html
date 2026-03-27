@@ -191,10 +191,13 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
   <div id="screen-karte" class="screen" style="padding:12px;padding-bottom:80px"></div>
   <div id="screen-katalog" class="screen"></div>
   <div id="screen-youtube" class="screen"></div>
-  <div id="screen-ki" class="screen" style="padding:0;flex-direction:column"></div>
+
   <div id="screen-stats" class="screen content"></div>
   <div id="screen-gebraucht" class="screen"></div>
   <div id="screen-anfragen" class="screen"></div>
+  <div id="screen-besuche" class="screen" style="padding:0;overflow-y:auto"></div>
+  <div id="screen-spesen" class="screen" style="overflow-y:auto;padding-bottom:80px"></div>
+  <div id="screen-videos" class="screen" style="overflow-y:auto;padding-bottom:80px"></div>
   <div id="screen-kalender" class="screen" style="overflow-y:auto;padding-bottom:80px"></div>
 
   <!-- Bottom Nav -->
@@ -220,10 +223,7 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
       Karte
     </button>
-    <button class="nav-btn" onclick="showTab('ki')" id="nav-ki">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm0-14a4 4 0 1 0 4 4 4 4 0 0 0-4-4zm0 6a2 2 0 1 1 2-2 2 2 0 0 1-2 2z"/></svg>
-      KI
-    </button>
+    
     <button class="nav-btn" onclick="showTab('stats')" id="nav-stats">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
       Analyse
@@ -244,6 +244,18 @@ input,select,textarea{font-size:16px!important;-webkit-appearance:none;appearanc
     <button class="nav-btn" onclick="showTab('kalender')" id="nav-kalender">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
       Kalender
+    </button>
+    <button class="nav-btn" onclick="showTab('besuche')" id="nav-besuche">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      Besuche
+    </button>
+    <button class="nav-btn" onclick="showTab('spesen')" id="nav-spesen">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+      Spesen
+    </button>
+    <button class="nav-btn" onclick="showTab('videos')" id="nav-videos">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+      Videos
     </button>
   </nav>
 </div>
@@ -819,8 +831,12 @@ function renderKarte(){
 
       <div class="field">
         <label>Ort / Stadt / PLZ</label>
-        <input id="karte-ort" placeholder="z.B. Blankenheim, 53945, Köln…" value="${localStorage.getItem('vp_karte_ort')||''}"
-          style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:15px"/>
+        <div style="display:flex;gap:8px">
+          <input id="karte-ort" placeholder="z.B. Blankenheim, 53945, Köln…" value="${localStorage.getItem('vp_karte_ort')||''}"
+            style="flex:1;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:15px"/>
+          <button onclick="karteGPSOrt()" style="background:var(--blue-dark);color:#fff;border:none;border-radius:8px;padding:10px 12px;font-size:18px;cursor:pointer" title="GPS Standort">📍</button>
+        </div>
+        <div id="karte-gps-status" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
@@ -875,8 +891,42 @@ function renderKarte(){
     document.getElementById('karte-custom')?.addEventListener('keydown', e=>{
       if(e.key==='Enter') karteOeffneCustom();
     });
+    // Auto-get GPS if no saved location
+    if(!localStorage.getItem('vp_karte_ort')) karteGPSOrt();
   }, 200);
 }
+
+function karteGPSOrt(){
+  const statusEl = document.getElementById('karte-gps-status');
+  const ortEl = document.getElementById('karte-ort');
+  if(statusEl) statusEl.textContent = 'GPS wird ermittelt…';
+  if(!navigator.geolocation){
+    if(statusEl) statusEl.textContent = 'GPS nicht verfügbar';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    // Reverse geocode via Nominatim
+    fetch('https://nominatim.openstreetmap.org/reverse?lat='+pos.coords.latitude+'&lon='+pos.coords.longitude+'&format=json&accept-language=de')
+      .then(r=>r.json())
+      .then(d=>{
+        const adr = d.address;
+        const ort = adr.city || adr.town || adr.village || adr.county || '';
+        const plz = adr.postcode || '';
+        const text = plz && ort ? plz+' '+ort : ort || plz;
+        if(ortEl && text){ ortEl.value = text; localStorage.setItem('vp_karte_ort', text); }
+        if(statusEl) statusEl.textContent = text ? 'Standort: '+text : 'Standort ermittelt';
+      })
+      .catch(()=>{
+        // Fallback: use coordinates directly
+        const coords = pos.coords.latitude.toFixed(4)+','+pos.coords.longitude.toFixed(4);
+        if(ortEl){ ortEl.value = coords; localStorage.setItem('vp_karte_ort', coords); }
+        if(statusEl) statusEl.textContent = 'GPS: '+coords;
+      });
+  }, function(){
+    if(statusEl) statusEl.textContent = 'GPS-Berechtigung verweigert';
+  }, {timeout:8000, maximumAge:300000});
+}
+
 
 function karteOeffne(suchbegriff){
   const ort = document.getElementById('karte-ort')?.value?.trim() || '';
@@ -2110,7 +2160,10 @@ function renderGebraucht(){
   const el=document.getElementById('screen-gebraucht');
   el.innerHTML=`
     <div style="padding:16px 16px 0">
-      <h2 style="font-size:20px;font-weight:800;margin-bottom:4px">♻️ Gebrauchtmaschinen</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h2 style="font-size:20px;font-weight:800">♻️ Gebrauchtmaschinen</h2>
+        <button onclick="gebrauchtAddManual()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">+ Hinzufügen</button>
+      </div>
       <p style="color:var(--text3);font-size:12px;margin-bottom:14px">REICH FOODSYSTEMS · Stand 07.08.2025 · ${GEBRAUCHTWAREN.length} Maschinen verfügbar</p>
       <div class="search-bar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text3)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
@@ -2132,7 +2185,8 @@ function filterGW(t,btn){
 
 function renderGebrauchtList(){
   const q=(document.getElementById('gw-search')?.value||'').toLowerCase();
-  const list=GEBRAUCHTWAREN.filter(m=>{
+  const alleGW=[...GEBRAUCHTWAREN,...(state.gebrauchtExtra||[])];
+  const list=alleGW.filter(m=>{
     const matchTyp=_gwFilter==='Alle'||m.typ===_gwFilter;
     const matchQ=!q||[m.name,m.kategorie,m.typ,m.beheizung,m.steuerung,m.raucherzeuger,m.notizen,m.wagen].some(v=>(v||'').toLowerCase().includes(q));
     return matchTyp&&matchQ;
@@ -2549,13 +2603,451 @@ function openLeadPDF(leadId) {
   }
 }
 
+
+// ═══════════════════════════════════════════════════════
+// BESUCHSBERICHTE
+// ═══════════════════════════════════════════════════════
+function renderBesuche(){
+  const el=document.getElementById('screen-besuche');
+  const besuche=state.besuche||[];
+  el.innerHTML=`
+    <div style="padding:16px 16px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h2 style="font-size:20px;font-weight:800">🏢 Besuchsberichte</h2>
+        <button onclick="genWochenbericht()" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📄 Wochenbericht</button>
+      </div>
+      <p style="color:var(--text3);font-size:12px;margin-bottom:14px">${besuche.length} Besuche</p>
+      <div class="search-bar"><svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text3)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input placeholder="Firma suchen…" oninput="renderBesuche()" id="bes-search" style="background:none;border:none;color:var(--text);flex:1"/></div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:0 16px;padding-bottom:80px">
+      ${besuche.length?[...besuche].reverse().filter(b=>{
+        const q=(document.getElementById('bes-search')?.value||'').toLowerCase();
+        return !q||b.firma?.toLowerCase().includes(q);
+      }).map(b=>`
+        <div class="card" style="margin-bottom:12px;border-left:4px solid #a855f7">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <div style="font-size:16px;font-weight:800">${b.firma}</div>
+              <div style="color:var(--text3);font-size:12px">📅 ${b.datum}${b.uhrzeit?' 🕐 '+b.uhrzeit:''} ${b.kontakt?'· 👤 '+b.kontakt:''}</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button onclick="besuchAlsPDF('${b.id}')" style="background:#3b82f622;color:var(--blue);border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700">📄 PDF</button>
+              <button onclick="openBesuchForm('${b.id}')" class="btn btn-sm btn-secondary">✏️</button>
+              <button onclick="deleteBesuch('${b.id}')" class="btn btn-sm btn-danger">🗑</button>
+            </div>
+          </div>
+          ${b.maschinenpark?`<div style="background:#a855f711;border-radius:8px;padding:8px;margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:#a855f7;margin-bottom:2px">MASCHINENPARK/WETTBEWERB</div><div style="font-size:13px">${b.maschinenpark}</div></div>`:''}
+          ${b.interesse?`<div style="background:#10b98111;border-radius:8px;padding:8px;margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:var(--green);margin-bottom:2px">INTERESSE/BEDARF</div><div style="font-size:13px">${b.interesse}</div></div>`:''}
+          ${b.naechsteSchritte?`<div style="background:#3b82f611;border-radius:8px;padding:8px"><div style="font-size:10px;font-weight:700;color:var(--blue);margin-bottom:2px">NAECHSTE SCHRITTE</div><div style="font-size:13px">${b.naechsteSchritte}</div></div>`:''}
+        </div>`).join(''):`<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:48px;margin-bottom:12px">🏢</div><div>Noch keine Besuche</div></div>`}
+    </div>
+    <button class="fab" onclick="openBesuchForm(null)">+</button>`;
+}
+
+function openBesuchForm(id){
+  const b=id?(state.besuche||[]).find(x=>x.id===id):{};
+  const today=heute();
+  const now=new Date();
+  const t=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const leads=(state.leads||[]).map(l=>l.firma);
+  openSheet(`
+    <div class="sheet-title">🏢 ${id?'Besuch bearbeiten':'Neuer Besuchsbericht'}</div>
+    <div class="field"><label>Firma *</label>
+      <input id="bf-firma" value="${b.firma||''}" list="bf-leads-list" placeholder="Kunde"/>
+      <datalist id="bf-leads-list">${leads.map(f=>'<option value="'+f+'">').join('')}</datalist>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:2"><label>Datum</label><input type="date" id="bf-datum" value="${b.datum||today}"/></div>
+      <div class="field" style="flex:1"><label>Uhrzeit</label><input type="time" id="bf-uhrzeit" value="${b.uhrzeit||t}"/></div>
+    </div>
+    <div class="field"><label>Gesprächspartner</label><input id="bf-kontakt" value="${b.kontakt||''}" placeholder="Name, Funktion"/></div>
+    <div class="field" style="border:1px solid #a855f744;border-radius:10px;padding:12px">
+      <label style="color:#a855f7">🏭 Maschinenpark & Wettbewerb</label>
+      <textarea id="bf-maschinen" rows="3" placeholder="Welche Maschinen hat der Kunde?">${b.maschinenpark||''}</textarea>
+    </div>
+    <div class="field" style="border:1px solid #10b98144;border-radius:10px;padding:12px">
+      <label style="color:var(--green)">🎯 Interesse & Bedarf</label>
+      <textarea id="bf-interesse" rows="3" placeholder="Was braucht der Kunde?">${b.interesse||''}</textarea>
+    </div>
+    <div class="field"><label>Notizen</label><textarea id="bf-notizen" rows="2" placeholder="Sonstiges…">${b.notizen||''}</textarea></div>
+    <div class="field"><label>Nächste Schritte</label><textarea id="bf-naechste" rows="2" placeholder="Was passiert als nächstes?">${b.naechsteSchritte||''}</textarea></div>
+    <div class="field"><label>Erinnerung in</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="bf-remind" checked style="width:20px;height:20px;accent-color:var(--blue)"/>
+        <input type="date" id="bf-remind-date" value="${(()=>{const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().split('T')[0];})()}"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
+      <button class="btn btn-primary btn-full" onclick="saveBesuch('${id||''}')">💾 Speichern</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('bf-firma')?.focus(),300);
+}
+
+function saveBesuch(id){
+  const g=k=>document.getElementById('bf-'+k)?.value||'';
+  if(!g('firma')){alert('Firma ist Pflichtfeld');return;}
+  const data={firma:g('firma'),datum:g('datum'),uhrzeit:g('uhrzeit'),kontakt:g('kontakt'),
+    maschinenpark:g('maschinen'),interesse:g('interesse'),notizen:g('notizen'),naechsteSchritte:g('naechste')};
+  if(!state.besuche)state.besuche=[];
+  if(id){state.besuche=state.besuche.map(b=>b.id===id?{...b,...data}:b);}
+  else{
+    state.besuche=[...state.besuche,{...data,id:Date.now()+'',erstellt:heute()}];
+    if(document.getElementById('bf-remind')?.checked){
+      const rd=document.getElementById('bf-remind-date')?.value;
+      if(rd)state.aufgaben=[...(state.aufgaben||[]),{id:'bes-'+Date.now(),titel:'Nachfassen: '+data.firma,beschreibung:data.naechsteSchritte,faellig:rd,prioritaet:'Hoch',erledigt:false,bezug:data.firma,typ:'Besuch',autoErstellt:true}];
+    }
+    const lead=(state.leads||[]).find(l=>l.firma===data.firma);
+    if(lead){state.leads=state.leads.map(l=>l.firma===data.firma?{...l,letzterKontakt:data.datum}:l);save('leads');}
+  }
+  save('besuche');save('aufgaben');updateBadges();
+  closeSheet();renderBesuche();
+}
+
+function deleteBesuch(id){
+  if(confirm('Besuch löschen?')){state.besuche=(state.besuche||[]).filter(b=>b.id!==id);save('besuche');renderBesuche();}
+}
+
+function besuchAlsPDF(id){
+  const b=(state.besuche||[]).find(x=>x.id===id);
+  if(!b)return;
+  const ziele=state.ziele||{};
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Besuchsbericht ${b.firma}</title>
+<style>body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#1a1a2e}
+h1{color:#1d4ed8;font-size:22px;margin-bottom:4px}.meta{color:#64748b;font-size:13px;margin-bottom:24px}
+.section{margin-bottom:20px}.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#a855f7;border-bottom:2px solid #a855f733;padding-bottom:4px;margin-bottom:8px}
+.section-text{font-size:14px;line-height:1.6;color:#374151}
+.footer{margin-top:40px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}
+@media print{.no-print{display:none}}</style></head>
+<body>
+<h1>🏢 Besuchsbericht: ${b.firma}</h1>
+<div class="meta">📅 ${b.datum}${b.uhrzeit?' · 🕐 '+b.uhrzeit+' Uhr':''} ${b.kontakt?'· 👤 '+b.kontakt:''}<br>
+Erstellt von: ${ziele.name||'Robert Kutschke'} · AS Technical Solutions GmbH</div>
+${b.maschinenpark?`<div class="section"><div class="section-title">Maschinenpark & Wettbewerb</div><div class="section-text">${b.maschinenpark}</div></div>`:''}
+${b.interesse?`<div class="section"><div class="section-title">Interesse & Bedarf</div><div class="section-text">${b.interesse}</div></div>`:''}
+${b.notizen?`<div class="section"><div class="section-title">Notizen</div><div class="section-text">${b.notizen}</div></div>`:''}
+${b.naechsteSchritte?`<div class="section"><div class="section-title">Nächste Schritte</div><div class="section-text">${b.naechsteSchritte}</div></div>`:''}
+<div class="footer">Vertrieb Pro · AS Technical Solutions GmbH · ${new Date().toLocaleString('de-DE')}</div>
+<div class="no-print" style="text-align:center;margin-top:20px">
+<button onclick="window.print()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Drucken / Als PDF</button></div>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+}
+
+function genWochenbericht(){
+  const now=new Date();
+  const day=now.getDay()===0?7:now.getDay();
+  const mon=new Date(now);mon.setDate(now.getDate()-day+1);mon.setHours(0,0,0,0);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  const monStr=mon.toISOString().split('T')[0];
+  const sunStr=sun.toISOString().split('T')[0];
+  const kw=Math.ceil((((now-new Date(now.getFullYear(),0,1))/86400000)+new Date(now.getFullYear(),0,1).getDay()+1)/7);
+  const besuche=(state.besuche||[]).filter(b=>b.datum>=monStr&&b.datum<=sunStr);
+  const angebote=(state.angebote||[]).filter(a=>(a.erstellt||'')>=monStr);
+  const gewonnen=(state.angebote||[]).filter(a=>a.status==='Gewonnen').reduce((s,a)=>s+(a.wert||0),0);
+  const ziele=state.ziele||{};
+  const monate=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const fmt=d=>{const dt=new Date(d);return dt.getDate()+'. '+monate[dt.getMonth()]+' '+dt.getFullYear();};
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Wochenbericht KW ${kw}</title>
+<style>*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#1a1a2e}
+.header{background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border-radius:12px;padding:24px;margin-bottom:24px}
+.header h1{margin:0 0 4px;font-size:24px}.header p{margin:0;opacity:.85;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;text-align:center}
+.kpi-val{font-size:28px;font-weight:800;color:#1d4ed8}.kpi-lbl{font-size:11px;color:#64748b;margin-top:4px;text-transform:uppercase}
+.card{border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:12px}
+.card-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.card-meta{font-size:12px;color:#64748b;margin-bottom:10px}
+.tag{display:inline-block;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;margin-bottom:4px}
+.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.sec-blue{color:#1d4ed8}.sec-green{color:#10b981}.sec-purple{color:#a855f7}
+.footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}
+@media print{.no-print{display:none}}</style></head>
+<body>
+<div class="header"><h1>Wochenbericht KW ${kw} · ${now.getFullYear()}</h1>
+<p>${ziele.name||'Robert Kutschke'} · AS Technical Solutions GmbH · ${fmt(monStr)} – ${fmt(sunStr)}</p></div>
+<div class="kpis">
+<div class="kpi"><div class="kpi-val">${besuche.length}</div><div class="kpi-lbl">Besuche</div></div>
+<div class="kpi"><div class="kpi-val">${angebote.length}</div><div class="kpi-lbl">Angebote</div></div>
+<div class="kpi"><div class="kpi-val">€${gewonnen.toLocaleString('de-DE',{maximumFractionDigits:0})}</div><div class="kpi-lbl">Umsatz</div></div>
+</div>
+<h2 style="font-size:18px;font-weight:800;margin-bottom:16px;color:#1d4ed8">Kundenbesuche (${besuche.length})</h2>
+${besuche.length?besuche.sort((a,b)=>a.datum.localeCompare(b.datum)).map(b=>`
+<div class="card">
+<div class="card-title">${b.firma}</div>
+<div class="card-meta">📅 ${fmt(b.datum)}${b.uhrzeit?' · 🕐 '+b.uhrzeit+' Uhr':''}${b.kontakt?' · 👤 '+b.kontakt:''}</div>
+${b.maschinenpark?`<div style="margin-bottom:8px"><div class="sec-title sec-purple">Maschinenpark</div><div style="font-size:13px">${b.maschinenpark}</div></div>`:''}
+${b.interesse?`<div style="margin-bottom:8px"><div class="sec-title sec-green">Interesse</div><div style="font-size:13px">${b.interesse}</div></div>`:''}
+${b.naechsteSchritte?`<div><div class="sec-title sec-blue">Nächste Schritte</div><div style="font-size:13px">${b.naechsteSchritte}</div></div>`:''}
+</div>`).join(''):'<p style="color:#94a3b8;font-style:italic">Keine Besuche diese Woche.</p>'}
+<div class="footer">Vertrieb Pro · ${new Date().toLocaleString('de-DE')}</div>
+<div class="no-print" style="text-align:center;margin-top:20px">
+<button onclick="window.print()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Drucken / Als PDF</button>
+</div></body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+}
+
+// ═══════════════════════════════════════════════════════
+// SPESEN
+// ═══════════════════════════════════════════════════════
+function renderSpesen(){
+  const spesen=state.spesen||[];
+  const now=new Date();
+  // 3 months back
+  const minDate=new Date(now);minDate.setMonth(minDate.getMonth()-3);
+  const minStr=minDate.toISOString().split('T')[0];
+  const aktuelle=spesen.filter(s=>s.datum>=minStr);
+  const gesamt=aktuelle.reduce((s,x)=>s+(x.betrag||0),0);
+  const el=document.getElementById('screen-spesen');
+  el.innerHTML=`
+    <div style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h2 style="font-size:20px;font-weight:800">💰 Tagesspesen</h2>
+        <button onclick="spesenAlsPDF()" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📄 Export PDF</button>
+      </div>
+      <p style="color:var(--text3);font-size:12px;margin-bottom:14px">Letzte 3 Monate · Gesamt: <b style="color:var(--green)">€${gesamt.toFixed(2)}</b></p>
+
+      <div class="card" style="margin-bottom:16px;border-color:#10b98144">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--green)">+ Neue Spesen erfassen</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div class="field" style="flex:1;margin:0"><label style="font-size:11px">Datum</label><input type="date" id="sp-datum" value="${heute()}" style="width:100%"/></div>
+          <div class="field" style="flex:1;margin:0"><label style="font-size:11px">Art</label>
+            <select id="sp-art" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+              <option value="8h">8 Stunden (€14,00)</option>
+              <option value="24h">24 Stunden (€28,00)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:8px">
+          <label style="font-size:11px">Anlass</label>
+          <select id="sp-anlass" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px">
+            <option>Akquise</option>
+            <option>Vorführung</option>
+            <option>Wartung</option>
+            <option>Service</option>
+            <option>Einweisung</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div class="field" style="flex:1;margin:0"><label style="font-size:11px">Startort</label><input id="sp-start" placeholder="z.B. Blankenheim" style="width:100%"/></div>
+          <div class="field" style="flex:1;margin:0"><label style="font-size:11px">Zielort</label><input id="sp-ziel" placeholder="z.B. Köln" style="width:100%"/></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div class="field" style="flex:1;margin:0"><label style="font-size:11px">Abfahrt</label><input type="time" id="sp-abfahrt" style="width:100%"/></div>
+          <div class="field" style="flex:1;margin:0"><label style="font-size:11px">Rückkehr</label><input type="time" id="sp-rueck" style="width:100%"/></div>
+        </div>
+        <div class="field" style="margin-bottom:12px"><label style="font-size:11px">Kunde / Notiz</label><input id="sp-notiz" placeholder="z.B. Engel GmbH Blankenheim" style="width:100%"/></div>
+        <button onclick="saveSpese()" style="width:100%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;padding:11px;font-weight:700;cursor:pointer;font-size:14px">✅ Spese speichern</button>
+      </div>
+
+      ${aktuelle.length?`<div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase">Einträge</div>`:''}
+      ${aktuelle.sort((a,b)=>b.datum.localeCompare(a.datum)).map(s=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
+          <div style="width:36px;height:36px;border-radius:18px;background:#10b98122;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">💰</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${s.anlass} · ${s.art==='8h'?'8h':'24h'}</div>
+            <div style="font-size:12px;color:var(--text3)">📅 ${s.datum}${s.abfahrt?' · '+s.abfahrt+' – '+s.rueck:''}${s.start?' · '+s.start+' → '+s.ziel:''}</div>
+            ${s.notiz?`<div style="font-size:12px;color:var(--text3)">${s.notiz}</div>`:''}
+          </div>
+          <div style="font-weight:800;font-size:16px;color:var(--green);flex-shrink:0">€${(s.betrag||0).toFixed(2)}</div>
+          <button onclick="deleteSpese('${s.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer">🗑</button>
+        </div>`).join('')}
+    </div>`;
+}
+
+function saveSpese(){
+  const art=document.getElementById('sp-art')?.value;
+  const betrag=art==='8h'?14:28;
+  const s={
+    id:Date.now()+'',datum:document.getElementById('sp-datum')?.value||heute(),
+    art,betrag,anlass:document.getElementById('sp-anlass')?.value||'',
+    start:document.getElementById('sp-start')?.value||'',
+    ziel:document.getElementById('sp-ziel')?.value||'',
+    abfahrt:document.getElementById('sp-abfahrt')?.value||'',
+    rueck:document.getElementById('sp-rueck')?.value||'',
+    notiz:document.getElementById('sp-notiz')?.value||''
+  };
+  state.spesen=[...(state.spesen||[]),s];
+  save('spesen');
+  renderSpesen();
+}
+
+function deleteSpese(id){
+  if(confirm('Eintrag löschen?')){state.spesen=(state.spesen||[]).filter(s=>s.id!==id);save('spesen');renderSpesen();}
+}
+
+function spesenAlsPDF(){
+  const now=new Date();
+  const minDate=new Date(now);minDate.setMonth(minDate.getMonth()-3);
+  const minStr=minDate.toISOString().split('T')[0];
+  const spesen=(state.spesen||[]).filter(s=>s.datum>=minStr).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const gesamt=spesen.reduce((s,x)=>s+(x.betrag||0),0);
+  const ziele=state.ziele||{};
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Spesenabrechnungen</title>
+<style>body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px}
+h1{color:#1d4ed8}table{width:100%;border-collapse:collapse;margin-top:20px}
+th{background:#1d4ed8;color:#fff;padding:10px;text-align:left;font-size:12px}
+td{padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:13px}
+tr:nth-child(even){background:#f8fafc}
+.total{font-weight:700;font-size:16px;color:#10b981;margin-top:16px;text-align:right}
+.footer{margin-top:32px;font-size:11px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:12px}
+@media print{.no-print{display:none}}</style></head>
+<body>
+<h1>💰 Spesenabrechnungen</h1>
+<p style="color:#64748b">${ziele.name||'Robert Kutschke'} · AS Technical Solutions GmbH · Letzte 3 Monate</p>
+<table>
+<tr><th>Datum</th><th>Anlass</th><th>Art</th><th>Von</th><th>Nach</th><th>Abfahrt</th><th>Rückkehr</th><th>Notiz</th><th>Betrag</th></tr>
+${spesen.map(s=>`<tr>
+<td>${s.datum}</td><td>${s.anlass}</td><td>${s.art==='8h'?'8 Stunden':'24 Stunden'}</td>
+<td>${s.start||'–'}</td><td>${s.ziel||'–'}</td><td>${s.abfahrt||'–'}</td><td>${s.rueck||'–'}</td>
+<td>${s.notiz||'–'}</td><td style="font-weight:700;color:#10b981">€${(s.betrag||0).toFixed(2)}</td>
+</tr>`).join('')}
+</table>
+<div class="total">Gesamt: €${gesamt.toFixed(2)}</div>
+<div class="footer">Vertrieb Pro · ${new Date().toLocaleString('de-DE')}</div>
+<div class="no-print" style="text-align:center;margin-top:20px">
+<button onclick="window.print()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Drucken / Als PDF</button>
+</div></body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+}
+
+// ═══════════════════════════════════════════════════════
+// VIDEOS (YouTube Hersteller-Links)
+// ═══════════════════════════════════════════════════════
+const VIDEO_KATS=[
+  {id:'graef',n:'GRAEF',e:'🔪',c:'#ef4444'},
+  {id:'zermat',n:'ZERMAT',e:'🥩',c:'#f97316'},
+  {id:'foodlog',n:'Foodlogistik',e:'🍱',c:'#10b981'},
+  {id:'mischer',n:'Mischer',e:'🔄',c:'#3b82f6'},
+  {id:'kutter',n:'Kutter',e:'⚙️',c:'#8b5cf6'},
+  {id:'fuell',n:'Füllmaschinen',e:'🏭',c:'#06b6d4'},
+  {id:'sonstige',n:'Sonstige',e:'📹',c:'#64748b'},
+];
+
+function renderVideos(){
+  const videos=state.videos||[];
+  const el=document.getElementById('screen-videos');
+  const q=(document.getElementById('vid-search')?.value||'').toLowerCase();
+  const filtered=q?videos.filter(v=>v.titel?.toLowerCase().includes(q)||v.kat?.toLowerCase().includes(q)):videos;
+  el.innerHTML=`
+    <div style="padding:16px 16px 0">
+      <h2 style="font-size:20px;font-weight:800;margin-bottom:4px">📹 Hersteller-Videos</h2>
+      <p style="color:var(--text3);font-size:12px;margin-bottom:14px">${videos.length} Videos gespeichert</p>
+      <div class="search-bar"><svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text3)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input id="vid-search" placeholder="Videos suchen…" oninput="renderVideos()" style="background:none;border:none;color:var(--text);flex:1"/></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">
+        ${VIDEO_KATS.map(k=>`<button onclick="filterVideos('${k.id}')" style="background:${k.c}22;color:${k.c};border:1px solid ${k.c}44;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">${k.e} ${k.n}</button>`).join('')}
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:0 16px;padding-bottom:80px">
+      ${filtered.length?filtered.map(v=>`
+        <div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:10px;background:#ef444422;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📹</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.titel||'Video'}</div>
+            <div style="font-size:11px;color:var(--text3)">${v.kat||''}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <a href="${v.url}" target="_blank" style="background:#ef444422;color:#ef4444;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700;text-decoration:none">▶️</a>
+            <button onclick="deleteVideo('${v.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">🗑</button>
+          </div>
+        </div>`).join(''):`<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:48px;margin-bottom:12px">📹</div><div>Noch keine Videos</div></div>`}
+    </div>
+    <button class="fab" onclick="openVideoForm()">+</button>`;
+}
+
+function filterVideos(katId){
+  const kat=VIDEO_KATS.find(k=>k.id===katId);
+  if(!kat)return;
+  const el=document.getElementById('vid-search');
+  if(el){el.value=kat.n;renderVideos();}
+}
+
+function openVideoForm(){
+  openSheet(`
+    <div class="sheet-title">📹 Video hinzufügen</div>
+    <div class="field"><label>YouTube URL *</label>
+      <input id="vf-url" placeholder="https://www.youtube.com/watch?v=…" type="url"/></div>
+    <div class="field"><label>Titel</label>
+      <input id="vf-titel" placeholder="z.B. GRAEF Master 3020 Demo"/></div>
+    <div class="field"><label>Kategorie</label>
+      <select id="vf-kat" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px">
+        ${VIDEO_KATS.map(k=>'<option value="'+k.n+'">'+k.e+' '+k.n+'</option>').join('')}
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
+      <button class="btn btn-primary btn-full" onclick="saveVideo()">💾 Speichern</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('vf-url')?.focus(),300);
+}
+
+function saveVideo(){
+  const url=document.getElementById('vf-url')?.value?.trim();
+  if(!url){alert('Bitte URL eingeben');return;}
+  const v={id:Date.now()+'',url,titel:document.getElementById('vf-titel')?.value||url,kat:document.getElementById('vf-kat')?.value||'Sonstige',erstellt:heute()};
+  state.videos=[...(state.videos||[]),v];
+  save('videos');closeSheet();renderVideos();
+}
+
+function deleteVideo(id){
+  if(confirm('Video löschen?')){state.videos=(state.videos||[]).filter(v=>v.id!==id);save('videos');renderVideos();}
+}
+
+// ═══════════════════════════════════════════════════════
+// GEBRAUCHT - Import/Export/Edit
+// ═══════════════════════════════════════════════════════
+function gebrauchtAddManual(){
+  openSheet(`
+    <div class="sheet-title">♻️ Maschine hinzufügen</div>
+    <div class="field"><label>Name / Modell *</label><input id="gb-name" placeholder="z.B. GRAEF Master 3020"/></div>
+    <div class="field"><label>Hersteller</label><input id="gb-hersteller" placeholder="z.B. GRAEF"/></div>
+    <div class="field"><label>Typ</label>
+      <select id="gb-typ" style="width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px">
+        <option>Slicer</option><option>Räucheranlage</option><option>Mischer</option><option>Kutter</option>
+        <option>Füllmaschine</option><option>Vakuumierer</option><option>Sonstige</option>
+      </select>
+    </div>
+    <div class="field"><label>Preis (€)</label><input id="gb-preis" type="number" placeholder="0"/></div>
+    <div class="field"><label>Zustand</label><input id="gb-zustand" placeholder="z.B. Sehr gut, 2019"/></div>
+    <div class="field"><label>Beschreibung</label><textarea id="gb-beschr" rows="3" placeholder="Details, Ausstattung…"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
+      <button class="btn btn-primary btn-full" onclick="saveGebrauchtManual()">💾 Speichern</button>
+    </div>`);
+}
+
+function saveGebrauchtManual(){
+  const name=document.getElementById('gb-name')?.value?.trim();
+  if(!name){alert('Name ist Pflichtfeld');return;}
+  const m={id:'gm-'+Date.now(),name,typ:document.getElementById('gb-typ')?.value||'Sonstige',
+    hersteller:document.getElementById('gb-hersteller')?.value||'',
+    preis:parseFloat(document.getElementById('gb-preis')?.value||0),
+    zustand:document.getElementById('gb-zustand')?.value||'',
+    beschreibung:document.getElementById('gb-beschr')?.value||''};
+  state.gebrauchtExtra=[...(state.gebrauchtExtra||[]),m];
+  save('gebrauchtExtra');closeSheet();renderGebraucht();
+}
+
+function gebrauchtDeleteExtra(id){
+  if(confirm('Eintrag löschen?')){
+    state.gebrauchtExtra=(state.gebrauchtExtra||[]).filter(m=>m.id!==id);
+    save('gebrauchtExtra');renderGebraucht();
+  }
+}
+
+
 // ═══════════════════════════════════════════════════════
 // RENDERS MAP
 // ═══════════════════════════════════════════════════════
 const renders={
   dashboard:renderDashboard,leads:renderLeads,angebote:renderAngebote,
-  aufgaben:renderAufgaben,karte:renderKarte,ki:renderKI,
-  stats:renderStats,katalog:renderKatalog,youtube:renderYoutube,gebraucht:renderGebraucht,anfragen:renderAnfragen,kalender:renderKalender
+  aufgaben:renderAufgaben,karte:renderKarte,
+  stats:renderStats,katalog:renderKatalog,youtube:renderYoutube,gebraucht:renderGebraucht,anfragen:renderAnfragen,kalender:renderKalender,besuche:renderBesuche,spesen:renderSpesen,videos:renderVideos
 };
 
 // ═══════════════════════════════════════════════════════
