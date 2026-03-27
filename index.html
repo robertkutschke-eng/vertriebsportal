@@ -1379,48 +1379,117 @@ async function uploadPDFAnfrage(input) {
   const file = input.files[0];
   if (!file) return;
   input.value = '';
+  const apiKey = localStorage.getItem('vp_apikey')||'';
+
+  if (!apiKey) {
+    // No API key - open manual form with PDF name pre-filled
+    openAnfrageFormManuell(file.name);
+    return;
+  }
+
   showPDFLoading('Kundendienst-Auftrag wird ausgelesen…');
-  try {
-    const b64 = await fileToBase64(file);
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+  fileToBase64(file).then(b64 => {
+    fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json', 'x-api-key': localStorage.getItem('vp_apikey')||'', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true'},
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
         messages: [{
           role: 'user',
           content: [
-            {type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: b64}},
-            {type: 'text', text: `Lies diesen Kundendienst-Auftrag / diese Anfrage aus.
-Antworte NUR mit JSON, kein Text davor/danach, keine Backticks:
-{
-  "firma": "Firmenname",
-  "strasse": "Straße",
-  "plz": "PLZ",
-  "ort": "Ort",
-  "telefon": "Telefon",
-  "email": "E-Mail falls vorhanden",
-  "komnr": "Kommissionsnummer oder Auftragsnummer",
-  "interesse": "Was wurde angefragt (GRAEF/BASTRA/ZERMAT etc.)",
-  "techniker": "Name des Servicetechnikers",
-  "datum": "Datum im Format YYYY-MM-DD",
-  "notizen": "Sonstige wichtige Informationen"
-}`}
+            {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+            {type:'text', text:'Lies diesen Kundendienst-Auftrag und extrahiere als JSON: {"firma":"Kundenname","kontakt":"Ansprechpartner","telefon":"Tel","email":"Email","adresse":"Adresse","maschine":"Maschinentyp/Modell","problem":"Problem/Defekt","komNr":"Kommissions-Nr falls vorhanden","techniker":"Techniker Name"}. Nur JSON antworten.'}
           ]
         }]
       })
-    });
-    const data = await res.json();
-    const text = data.content?.map(b => b.text || '').join('') || '';
-    const clean = text.replace(/^```json|^```|```$/gm, '').trim();
-    const parsed = JSON.parse(clean);
-    closeSheet();
-    prefillAnfrageForm(parsed);
-  } catch(e) {
-    closeSheet();
-    alert('Fehler beim Auslesen der PDF.\n' + e.message);
+    })
+    .then(r => r.json())
+    .then(data => {
+      const text = data.content?.[0]?.text || '';
+      const clean = text.replace(/```json|```/g,'').trim();
+      try {
+        const info = JSON.parse(clean);
+        openAnfrageFormMitDaten(info, file.name);
+      } catch(e) {
+        openAnfrageFormManuell(file.name);
+      }
+    })
+    .catch(() => openAnfrageFormManuell(file.name));
+  }).catch(() => openAnfrageFormManuell(file.name));
+}
+
+function openAnfrageFormManuell(pdfName) {
+  openSheet(`
+    <div class="sheet-title">🔧 Neue Anfrage${pdfName ? ' · '+pdfName : ''}</div>
+    ${!localStorage.getItem('vp_apikey') ? '<div style="background:#f59e0b22;border:1px solid #f59e0b44;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--orange)">💡 Tipp: API-Key in Einstellungen hinterlegen für automatisches PDF-Auslesen</div>' : ''}
+    <div class="field"><label>Firma / Kunde *</label><input id="af-firma" placeholder="Kundenname"/></div>
+    <div class="field"><label>Kontaktperson</label><input id="af-kontakt" placeholder="Name"/></div>
+    <div class="field"><label>Telefon</label><input id="af-telefon" placeholder="+49..." type="tel"/></div>
+    <div class="field"><label>Maschine / Modell</label><input id="af-maschine" placeholder="z.B. GRAEF Master 3020"/></div>
+    <div class="field"><label>Problem / Defekt</label><textarea id="af-problem" rows="3" placeholder="Was ist defekt oder gefragt?"></textarea></div>
+    <div class="field"><label>Kommissions-Nr.</label><input id="af-komNr" placeholder="z.B. B 3950"/></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
+      <button class="btn btn-primary btn-full" onclick="saveAnfrageManual('${pdfName||''}')">💾 Speichern</button>
+    </div>`);
+}
+
+function openAnfrageFormMitDaten(info, pdfName) {
+  openSheet(`
+    <div class="sheet-title">🔧 Anfrage · ${pdfName}</div>
+    <div style="background:#10b98122;border:1px solid #10b98144;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--green)">✅ KI hat PDF ausgelesen – bitte prüfen und ergänzen</div>
+    <div class="field"><label>Firma / Kunde *</label><input id="af-firma" value="${info.firma||''}"/></div>
+    <div class="field"><label>Kontaktperson</label><input id="af-kontakt" value="${info.kontakt||''}"/></div>
+    <div class="field"><label>Telefon</label><input id="af-telefon" value="${info.telefon||''}" type="tel"/></div>
+    <div class="field"><label>Maschine / Modell</label><input id="af-maschine" value="${info.maschine||''}"/></div>
+    <div class="field"><label>Problem / Defekt</label><textarea id="af-problem" rows="3">${info.problem||''}</textarea></div>
+    <div class="field"><label>Kommissions-Nr.</label><input id="af-komNr" value="${info.komNr||''}"/></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary btn-full" onclick="closeSheet()">Abbrechen</button>
+      <button class="btn btn-primary btn-full" onclick="saveAnfrageManual('${pdfName||''}')">💾 Speichern</button>
+    </div>`);
+}
+
+function saveAnfrageManual(pdfName) {
+  const firma = document.getElementById('af-firma')?.value?.trim();
+  if (!firma) { alert('Firma ist Pflichtfeld'); return; }
+  const d = new Date(); d.setDate(d.getDate()+3);
+  const anfrage = {
+    id: Date.now()+'',
+    firma, 
+    kontakt: document.getElementById('af-kontakt')?.value||'',
+    telefon: document.getElementById('af-telefon')?.value||'',
+    maschine: document.getElementById('af-maschine')?.value||'',
+    problem: document.getElementById('af-problem')?.value||'',
+    komNr: document.getElementById('af-komNr')?.value||'',
+    pdfName: pdfName||'',
+    datum: heute(), bearbeitet: false,
+    erinnerung: d.toISOString().split('T')[0]
+  };
+  state.anfragen = [...(state.anfragen||[]), anfrage];
+  // Also create lead if not exists
+  if (!(state.leads||[]).find(l=>l.firma===firma)) {
+    state.leads = [...(state.leads||[]), {
+      id:'af-'+Date.now(), firma,
+      kontakt: anfrage.kontakt, telefon: anfrage.telefon,
+      status:'Qualifiziert', prioritaet:'Hoch',
+      naechsterSchritt:'Angebot für: '+anfrage.maschine,
+      notizen:'Techniker-Anfrage: '+anfrage.problem,
+      erstellt:heute(), letzterKontakt:heute()
+    }];
+    save('leads');
   }
+  save('anfragen');
+  updateBadges();
+  closeSheet();
+  renderAnfragen();
+  alert('✅ Anfrage gespeichert!\n' + firma + (pdfName?'\n📄 '+pdfName:''));
 }
 
 function prefillAnfrageForm(data) {
