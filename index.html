@@ -94,7 +94,7 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
         <div class="brand-sub">AS Technical Solution GmbH</div>
       </div>
     </div>
-    <div class="small">lokale Version · schnelle Eingabe</div>
+    <div class="row auto" style="gap:8px;align-items:center;flex-wrap:nowrap"><button class="btn-ghost" id="backupBtn" style="padding:8px 12px">Backup</button><button class="btn-ghost" id="restoreBtn" style="padding:8px 12px">Wiederherstellen</button><input id="restoreInput" type="file" accept="application/json" style="display:none" /><div class="small">lokale Version · schnelle Eingabe</div></div>
   </header>
   <div class="layout">
     <aside>
@@ -124,6 +124,7 @@ const state = normalizeState(load()||{});
 purgeTransientData();
 renderNav();
 renderAll();
+initBackupControls();
 
 function normalizeState(s){
   return {
@@ -144,6 +145,36 @@ function normalizeState(s){
 }
 function load(){try{return JSON.parse(localStorage.getItem(DBKEY));}catch(e){return null}}
 function save(){localStorage.setItem(DBKEY, JSON.stringify(state));}
+function initBackupControls(){
+  const b=document.getElementById('backupBtn');
+  const r=document.getElementById('restoreBtn');
+  const i=document.getElementById('restoreInput');
+  if(b) b.onclick=exportBackup;
+  if(r) r.onclick=()=>i&&i.click();
+  if(i) i.onchange=importBackup;
+}
+function exportBackup(){
+  const data=JSON.stringify(state,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='vertrieb-pro-backup-'+localDateStr(new Date())+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function importBackup(ev){
+  const file=ev.target.files && ev.target.files[0];
+  if(!file) return;
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      const incoming=JSON.parse(fr.result);
+      localStorage.setItem(DBKEY, JSON.stringify(normalizeState(incoming)));
+      location.reload();
+    }catch(e){ alert('Backup konnte nicht geladen werden.'); }
+  };
+  fr.readAsText(file);
+}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function monthKey(dateStr){ const d=new Date(dateStr); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function monthLabel(key){ const [y,m]=key.split('-'); return new Date(Number(y),Number(m)-1,1).toLocaleDateString('de-DE',{month:'long',year:'numeric'}); }
@@ -231,7 +262,7 @@ function renderCRM(screenId,title,list){
   const editId = isLead ? state.leadEditId : state.anfrageEditId;
   const edit = editId ? list.find(x=>x.id===editId) : null;
   el.innerHTML=`
-    <div class="section-head"><div><h2>${title}</h2><p>Kunden mit PDFs, Suchfunktion, automatischer Texterkennung und internem Kalender.</p></div></div>
+    <div class="section-head"><div><h2>${title}</h2><p>Knackig. Alles Wichtige auf einen Blick.</p></div></div>
     <div class="split">
       <div class="card">
         <div class="row">
@@ -262,12 +293,12 @@ function renderCRM(screenId,title,list){
           <div><label>Erinnerung Datum</label><input id="${prefix}RemDate" type="date" /></div>
           <div><label>Erinnerung Uhrzeit</label><input id="${prefix}RemTime" type="time" /></div>
         </div>
-        <div><label>Automatische Kundenübersicht</label><textarea id="${prefix}Overview" readonly placeholder="Wird automatisch aus Text, PDF und Feldern aufgebaut."></textarea></div>
+        <div style="display:none"><label>Automatische Kundenübersicht</label><textarea id="${prefix}Overview" readonly placeholder="Wird automatisch aus Text, PDF und Feldern aufgebaut."></textarea></div>
         <div><label>Bericht</label><textarea id="${prefix}Bericht" placeholder="Bericht / Gesprächsinhalt für ${singular}."></textarea></div>
         <div><label>Quelltext / Notiz</label><textarea id="${prefix}Notiz" placeholder="Text einfügen oder frei schreiben – die App zieht die Daten direkt in die Felder."></textarea></div>
-        <div class="small" style="margin:8px 0 0">AS Technical Solution wird bei der Erkennung ignoriert. Datum, Uhrzeit, Interesse, Produkt und nächster Schritt werden wenn möglich direkt aus dem Text übernommen.</div>
+        
         <div style="margin-top:10px"><label>PDF-Dateien</label><input id="${prefix}Pdf" type="file" accept="application/pdf" multiple /></div>
-        <div class="small" style="margin:8px 0 10px">PDF-Inhalt wird bei normalen Text-PDFs gelesen und in Felder und Suche übernommen.</div>
+        
         <div class="row auto"><button class="btn-secondary" id="${prefix}Parse">Text in Felder übernehmen</button><button class="btn-primary" id="${prefix}Save">${edit ? singular+' aktualisieren' : singular+' speichern'}</button>${edit ? `<button class="btn-ghost" id="${prefix}Cancel">Abbrechen</button>` : ``}</div>
       </div>
       <div>
@@ -384,17 +415,21 @@ function renderCRMList(prefix,list){
   if(!filtered.length){container.innerHTML='<div class="empty">Keine Einträge gefunden.</div>';return;}
   container.innerHTML=filtered.map(x=>`
     <div class="item">
-      <div class="section-head" style="margin-bottom:10px"><div><h4>${esc(x.firma)}</h4><div class="meta"><span>${esc(x.kontakt||'')}</span><span>${esc(x.tel||'')}</span><span>${esc(x.mail||'')}</span></div></div><div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div></div>
-      ${x.uebersicht?`<div class="block" style="margin-top:8px;white-space:pre-wrap">${esc(x.uebersicht)}</div>`:''}
-      ${(x.datum||x.uhrzeit)?`<div class="small" style="margin-top:8px">Termin: ${esc(x.datum||'')}${x.uhrzeit?` · ${esc(x.uhrzeit)}`:''}</div>`:''}
-      ${(x.interesse||x.produkt)?`<div class="small" style="margin-top:4px">Interesse: ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
-      ${x.nextStep?`<div class="small" style="margin-top:4px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
-      ${x.angebotNr?`<div class="small" style="margin-top:4px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
-      ${(x.reminderDate||x.reminderTime)?`<div class="small" style="margin-top:4px"><strong>Erinnerung:</strong> ${esc(x.reminderDate||'')}${x.reminderTime?` · ${esc(x.reminderTime)}`:''}</div>`:''}
-      ${x.notiz?`<div style="margin-top:8px;white-space:pre-wrap">${esc(x.notiz)}</div>`:''}
-      ${renderPdfList(x.pdfs||[])}
+      <div class="section-head" style="margin-bottom:10px">
+        <div>
+          <h4>${esc(x.kontakt || '')}</h4>
+          <div class="meta"><span>${esc(x.firma||'')}</span></div>
+        </div>
+        <div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div>
+      </div>
+      ${x.tel?`<div class="small" style="margin-top:4px"><strong>Telefon:</strong> ${esc(x.tel)}</div>`:''}
+      ${x.tel?`<div class="row auto" style="margin-top:8px"><button class="btn-success" onclick="window.open('https://wa.me/${String(x.tel||'').replace(/\D/g,'')}','_blank')">WhatsApp</button></div>`:''}
+      ${x.adresse||x.plz||x.ort?`<div class="small" style="margin-top:6px"><strong>Adresse:</strong> ${esc([x.adresse,[x.plz,x.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</div>`:''}
+      ${x.mail?`<div class="small" style="margin-top:6px"><strong>E-Mail:</strong> ${esc(x.mail)}</div>`:''}
+      ${(x.interesse||x.produkt)?`<div class="small" style="margin-top:6px"><strong>Maschine:</strong> ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
+      ${x.angebotNr?`<div class="small" style="margin-top:6px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
+      ${x.nextStep?`<div class="small" style="margin-top:6px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
       <div class="row auto" style="margin-top:10px">
-        ${(x.reminderDate || x.datum) ? `<button class="btn-success" onclick="openCalendarForRecordById('${prefix}','${x.id}')">Im Kalender</button>`:''}
         <button class="btn-secondary" onclick="editCRM('${prefix}','${x.id}')">Bearbeiten</button>
         ${prefix==='anfrage' ? `<button class="btn-secondary" onclick="convertAnfrageToLead('${x.id}')">Als Lead übernehmen</button>` : ''}
         <button class="btn-danger" onclick="deleteCRM('${prefix}','${x.id}')">Löschen</button>
