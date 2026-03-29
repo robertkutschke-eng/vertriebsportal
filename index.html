@@ -1,438 +1,1246 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Vertrieb Pro</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <style>
-    :root{
-      --bg:#08111f; --bg2:#0d1727; --card:#111d31; --line:#233754; --text:#edf4ff; --muted:#91a7c6;
-      --blue:#4da3ff; --green:#22c55e; --orange:#f59e0b; --red:#ef4444; --purple:#8b5cf6;
-      --header-h:64px; --mobile-nav-h:74px; --side-w:270px; --radius:18px; --shadow:0 20px 50px rgba(0,0,0,.28);
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0;background:linear-gradient(180deg,#06101d,#0a1424);color:var(--text);font-family:Inter,Arial,Helvetica,sans-serif;min-height:100%}
-    body{min-height:100dvh}
-    button,input,select,textarea{font:inherit}
-    button{cursor:pointer}
-    a{color:var(--blue)}
-    .app{min-height:100dvh;display:grid;grid-template-rows:var(--header-h) 1fr;background:transparent}
-    .header{position:sticky;top:0;z-index:30;height:var(--header-h);display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:rgba(8,17,31,.9);backdrop-filter:blur(18px);border-bottom:1px solid rgba(35,55,84,.8)}
-    .brand{display:flex;align-items:center;gap:12px}
-    .logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#1d4ed8,#8b5cf6);display:grid;place-items:center;font-weight:800}
-    .brand h1{font-size:18px;margin:0}
-    .brand p{margin:0;color:var(--muted);font-size:12px}
-    .shell{min-height:0;display:grid;grid-template-columns:1fr}
-    .sidebar{display:none;padding:18px;border-right:1px solid rgba(35,55,84,.8);background:rgba(10,20,36,.66)}
-    .nav-btn,.mnav-btn{width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid transparent;background:transparent;color:var(--muted);font-weight:700;text-align:left}
-    .nav-btn.active,.mnav-btn.active{background:rgba(77,163,255,.14);border-color:rgba(77,163,255,.24);color:#fff}
-    .nav-dot,.mnav-icon{width:10px;height:10px;border-radius:50%;background:currentColor;opacity:.75}
-    .sidebar .section-title{margin:18px 0 10px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
-    .main{min-width:0;min-height:0;overflow:auto;padding:18px 18px calc(var(--mobile-nav-h) + 24px)}
-    .screen{display:none}
-    .screen.active{display:block}
-    .screen-inner{width:100%;max-width:1500px;margin:0 auto}
-    .page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
-    .page-title{margin:0;font-size:30px;line-height:1.1}
-    .page-sub{margin:6px 0 0;color:var(--muted);max-width:780px}
-    .card,.item,.kpi{background:linear-gradient(180deg,rgba(18,28,46,.96),rgba(13,23,39,.96));border:1px solid rgba(35,55,84,.95);border-radius:var(--radius);box-shadow:var(--shadow)}
-    .card{padding:18px}
-    .kpi-grid,.grid{display:grid;gap:16px}
-    .kpi-grid{grid-template-columns:repeat(1,minmax(0,1fr));margin-bottom:18px}
-    .grid.two{grid-template-columns:repeat(1,minmax(0,1fr))}
-    .grid.three{grid-template-columns:repeat(1,minmax(0,1fr))}
-    .kpi{padding:18px}
-    .kpi .label{font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:.06em;font-weight:700}
-    .kpi .value{font-size:32px;font-weight:800;margin-top:8px}
-    .kpi .sub{font-size:13px;color:var(--muted);margin-top:6px}
-    .card-title-row,.item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
-    .card h3{margin:0;font-size:18px}
-    .item{padding:16px}
-    .item + .item{margin-top:14px}
-    .item-title{font-size:18px;font-weight:800}
-    .item-sub{color:var(--muted);margin-top:4px;font-size:13px}
-    .item-body{margin-top:12px;line-height:1.55;color:#dfeaff}
-    .muted{color:var(--muted)}
-    .empty{padding:18px;border:1px dashed rgba(145,167,198,.25);border-radius:14px;color:var(--muted)}
-    .actions{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{border:none;border-radius:12px;padding:11px 16px;font-weight:800;color:#fff;background:rgba(145,167,198,.12)}
-    .btn.primary{background:linear-gradient(135deg,#1d4ed8,#4da3ff)}
-    .btn.green{background:linear-gradient(135deg,#0f766e,#22c55e)}
-    .btn.orange{background:linear-gradient(135deg,#b45309,#f59e0b)}
-    .btn.red{background:linear-gradient(135deg,#b91c1c,#ef4444)}
-    .btn.ghost{background:transparent;border:1px solid rgba(145,167,198,.24);color:#dce8fb}
-    .btn.small{padding:8px 12px;border-radius:10px;font-size:13px}
-    .searchbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-    .searchbar .grow{flex:1 1 280px}
-    .field input,.field select,.field textarea,.searchbar input,.searchbar select{width:100%;background:#09111f;border:1px solid rgba(35,55,84,.96);border-radius:12px;color:#fff;padding:12px 14px;outline:none}
-    .field textarea{min-height:90px;resize:vertical}
-    .field label{display:block;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
-    .form-grid{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:14px}
-    .field.full{grid-column:1 / -1}
-    .badge{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent}
-    .b-blue{background:rgba(77,163,255,.16);color:#8bc4ff;border-color:rgba(77,163,255,.3)}
-    .b-green{background:rgba(34,197,94,.16);color:#69e18f;border-color:rgba(34,197,94,.3)}
-    .b-orange{background:rgba(245,158,11,.16);color:#ffcb6b;border-color:rgba(245,158,11,.3)}
-    .b-red{background:rgba(239,68,68,.16);color:#ff9898;border-color:rgba(239,68,68,.3)}
-    .b-purple{background:rgba(139,92,246,.16);color:#c4a9ff;border-color:rgba(139,92,246,.3)}
-    .table-wrap{overflow:auto;border:1px solid rgba(35,55,84,.9);border-radius:16px}
-    table{width:100%;border-collapse:collapse;min-width:780px}
-    th,td{padding:12px 14px;border-bottom:1px solid rgba(35,55,84,.8);text-align:left;font-size:14px;vertical-align:top}
-    th{color:#b8cee9;background:rgba(9,17,31,.85);position:sticky;top:0}
-    tr:last-child td{border-bottom:none}
-    .mobile-nav{position:fixed;left:0;right:0;bottom:0;z-index:35;height:var(--mobile-nav-h);display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;padding:8px 10px calc(10px + env(safe-area-inset-bottom));background:rgba(8,17,31,.94);backdrop-filter:blur(18px);border-top:1px solid rgba(35,55,84,.9)}
-    .mnav-btn{padding:8px 6px;justify-content:center;flex-direction:column;gap:5px;font-size:11px;text-align:center}
-    .fab{position:fixed;right:18px;bottom:calc(var(--mobile-nav-h) + 18px);z-index:34;width:58px;height:58px;border:none;border-radius:50%;color:#fff;font-size:28px;font-weight:800;background:linear-gradient(135deg,#1d4ed8,#4da3ff);box-shadow:0 16px 35px rgba(29,78,216,.35)}
-    .modal{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:flex-end;justify-content:center;z-index:60}
-    .modal.open{display:flex}
-    .sheet{width:min(100%,940px);max-height:92dvh;overflow:auto;background:linear-gradient(180deg,#111d31,#0d1727);border:1px solid rgba(35,55,84,.98);border-radius:24px 24px 0 0;padding:18px 18px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--shadow)}
-    .sheet-handle{width:54px;height:5px;border-radius:99px;background:rgba(145,167,198,.35);margin:0 auto 14px}
-    .sheet-title{font-size:22px;font-weight:800;margin:0}
-    .sheet-sub{margin:8px 0 18px;color:var(--muted)}
-    .list .item{box-shadow:none}
-    .pdf-list,.inline-list{display:grid;gap:10px}
-    .pdf-row{padding:12px 14px;border:1px solid rgba(35,55,84,.85);border-radius:14px;background:rgba(9,17,31,.6)}
-    .pdf-row strong{display:block}
-    .pdf-snippet{margin-top:6px;color:#c7d7ee;font-size:13px;line-height:1.45}
-    .hit{padding:12px 14px;border-radius:14px;background:rgba(9,17,31,.6);border:1px solid rgba(35,55,84,.85)}
-    mark{background:rgba(245,158,11,.45);color:#fff;padding:0 2px;border-radius:4px}
-    .note{padding:12px 14px;border-radius:14px;border:1px solid rgba(35,55,84,.95);background:rgba(9,17,31,.72)}
-    .note.success{border-color:rgba(34,197,94,.28);background:rgba(34,197,94,.09)}
-    .month-total{font-size:34px;font-weight:900;margin:8px 0 4px}
-    @media (min-width:800px){
-      .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-    }
-    @media (min-width:1180px){
-      .shell{grid-template-columns:var(--side-w) 1fr}
-      .sidebar{display:block}
-      .main{padding:24px}
-      .mobile-nav{display:none}
-      .fab{bottom:24px}
-      .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-      .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
-      .sheet{border-radius:24px;max-height:90dvh}
-      .modal{align-items:center}
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Vertrieb Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
+<style>
+:root{
+  --bg:#07111d; --panel:#0d1828; --panel2:#122238; --line:#1f3654; --text:#eef5ff; --muted:#9bb0ce;
+  --blue:#53a5ff; --blue2:#1f6dd6; --green:#19c37d; --orange:#f59e0b; --red:#ef4444; --violet:#8b5cf6;
+  --header-h:58px; --sidebar-w:260px; --bottom-h:74px; --radius:18px; --shadow:0 10px 30px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:linear-gradient(180deg,#07111d,#08131f 40%,#091522);color:var(--text);font-family:Inter,Arial,sans-serif;min-height:100%}
+body{min-height:100dvh}
+a{color:#8bc0ff}
+button,input,select,textarea{font:inherit}
+#app{min-height:100dvh;display:grid;grid-template-rows:var(--header-h) 1fr}
+header{position:sticky;top:0;z-index:20;height:var(--header-h);display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:rgba(10,19,32,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-badge{width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,var(--blue2),var(--blue));display:grid;place-items:center;font-weight:800}
+.brand-title{font-weight:800}.brand-sub{font-size:11px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:1fr;min-height:0}
+aside{display:none;background:rgba(9,17,29,.85);border-right:1px solid var(--line);padding:18px 14px 18px;overflow:auto}
+main{min-width:0;min-height:0;overflow:auto;padding:16px;padding-bottom:calc(var(--bottom-h) + 18px)}
+.nav{display:grid;gap:8px}
+.nav button,nav.bottom button{border:1px solid transparent;background:transparent;color:var(--muted);border-radius:14px;padding:12px 12px;text-align:left;font-weight:700;cursor:pointer}
+.nav button.active,nav.bottom button.active{background:linear-gradient(180deg,#12243c,#102034);color:#fff;border-color:#274564}
+nav.bottom{position:fixed;left:0;right:0;bottom:0;height:var(--bottom-h);display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:rgba(10,19,32,.95);backdrop-filter:blur(14px);border-top:1px solid var(--line);z-index:30}
+nav.bottom button{text-align:center;font-size:11px;padding:8px 4px}
+.screen{display:none}.screen.active{display:block}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.section-head h2{margin:0;font-size:26px}.section-head p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.grid{display:grid;gap:14px}.grid-2{grid-template-columns:1fr}.grid-3{grid-template-columns:1fr}.grid-4{grid-template-columns:1fr}
+.card,.kpi,.hero{background:linear-gradient(180deg,rgba(16,30,49,.98),rgba(12,24,40,.98));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card{padding:16px;margin-bottom:14px}.hero{padding:18px 18px 16px;margin-bottom:16px}.hero h1{margin:0 0 6px;font-size:28px}.hero p{margin:0;color:var(--muted)}
+.kpi{padding:16px}.kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:800}.kpi .value{font-size:30px;font-weight:800;margin:8px 0 3px}.kpi .sub{font-size:12px;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:10px}.row>*{flex:1 1 190px}.row-tight>*{flex:1 1 140px}
+label{display:block;margin:0 0 6px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.45px}
+input,select,textarea{width:100%;padding:12px 13px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+textarea{min-height:92px;resize:vertical}
+button{border:0;border-radius:14px;padding:11px 16px;font-weight:800;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,var(--blue2),var(--blue));color:#fff}
+.btn-secondary{background:#162940;color:#fff}
+.btn-success{background:#0f4b34;color:#fff}
+.btn-danger{background:#4b1920;color:#fff}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.item{background:rgba(10,20,34,.92);border:1px solid var(--line);border-radius:16px;padding:14px}
+.item h4{margin:0 0 6px;font-size:18px}.meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;color:var(--muted);font-size:13px}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800}
+.b-blue{background:#1e3757;color:#8fc2ff}.b-green{background:#153c28;color:#82f3b6}.b-orange{background:#4d3209;color:#ffd57d}.b-red{background:#4a1820;color:#ff9ba7}.b-violet{background:#352055;color:#c7a8ff}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.toolbar>*{flex:1 1 220px}
+.small{font-size:12px;color:var(--muted)} .muted{color:var(--muted)}
+.empty{padding:22px;border:1px dashed var(--line);border-radius:16px;text-align:center;color:var(--muted)}
+.list{display:grid;gap:12px}
+.filelist{display:grid;gap:8px;margin-top:8px}
+.filepill{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#0d1828;border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.pdftext{white-space:pre-wrap;max-height:170px;overflow:auto;background:#0a1320;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:12px;color:#c9daf5}
+.split{display:grid;grid-template-columns:1fr;gap:14px}
+.quick{display:grid;grid-template-columns:1fr;gap:12px}
+hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
+.warn{background:#3c2d0a;border:1px solid #6a4b0f;color:#ffdb90;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.ok{background:#103324;border:1px solid #1f6947;color:#9ef1c4;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13px}.table th{color:var(--muted);font-size:12px;text-transform:uppercase}
+@media (min-width:780px){
+  .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .split{grid-template-columns:1.05fr .95fr}
+}
+@media (min-width:1120px){
+  #app{grid-template-columns:var(--sidebar-w) 1fr;grid-template-rows:var(--header-h) 1fr}
+  header{grid-column:1 / -1}
+  .layout{grid-column:1 / -1;grid-template-columns:var(--sidebar-w) 1fr}
+  aside{display:block}
+  main{padding:22px 24px 24px}
+  nav.bottom{display:none}
+  .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .quick{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+</style>
 </head>
 <body>
-<div class="app">
-  <header class="header">
+<div id="app">
+  <header>
     <div class="brand">
-      <div class="logo">VP</div>
+      <div class="brand-badge">VP</div>
       <div>
-        <h1>Vertrieb Pro</h1>
-        <p>AS Technical Solution GmbH</p>
+        <div class="brand-title">Vertrieb Pro</div>
+        <div class="brand-sub">AS Technical Solution GmbH</div>
       </div>
     </div>
-    <div class="actions">
-      <button class="btn ghost small" onclick="exportBackup()">Backup</button>
-      <button class="btn ghost small" onclick="importBackup()">Import</button>
-    </div>
+    <div class="small">lokale Version · schnelle Eingabe</div>
   </header>
-  <div class="shell">
-    <aside class="sidebar">
-      <div class="section-title">Navigation</div>
-      <div id="sidebarNav"></div>
-      <div class="section-title">Kurzinfo</div>
-      <div class="card">
-        <h3 style="margin-top:0">Aktiver Fokus</h3>
-        <div class="muted">Leads, Anfragen, Maschinen, Videos und Tagesspesen mit PDF-Auslesen und Suche.</div>
-      </div>
+  <div class="layout">
+    <aside>
+      <div class="nav" id="sideNav"></div>
+      <div class="warn" style="margin-top:16px">PDF-Textlesen funktioniert bei normalen Text-PDFs. Reine Scan-PDFs brauchen OCR und liefern hier oft keinen brauchbaren Text.</div>
     </aside>
-    <main class="main" id="main"></main>
+    <main>
+      <section id="dashboard" class="screen active"></section>
+      <section id="leads" class="screen"></section>
+      <section id="anfragen" class="screen"></section>
+      <section id="maschinen" class="screen"></section>
+      <section id="videos" class="screen"></section>
+      <section id="spesen" class="screen"></section>
+      <section id="kalender" class="screen"></section>
+      <section id="wochenbericht" class="screen"></section>
+    </main>
   </div>
+  <nav class="bottom" id="bottomNav"></nav>
 </div>
-<nav class="mobile-nav" id="mobileNav"></nav>
-<button class="fab" id="fab" onclick="handleFab()">+</button>
-<div class="modal" id="modal" onclick="if(event.target===this) closeModal()"><div class="sheet" id="sheet"></div></div>
-<input type="file" id="backupInput" accept="application/json" hidden />
 <script>
-
-if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
-const jsPDF = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : null;
-const LS_KEY = 'vertrieb-pro-v4';
-const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-const NAVS = [
-  {key:'dashboard',label:'Start'},
-  {key:'leads',label:'Leads'},
-  {key:'anfragen',label:'Anfragen'},
-  {key:'aufgaben',label:'Aufgaben'},
-  {key:'maschinen',label:'Maschinen'},
-  {key:'videos',label:'Videos'},
-  {key:'spesen',label:'Spesen'},
-  {key:'kalender',label:'Kalender'}
+const NAVS=[
+  ['dashboard','Start'],['leads','Leads'],['anfragen','Anfragen'],['maschinen','Maschinen'],['videos','Videos'],['spesen','Spesen'],['kalender','Kalender'],['wochenbericht','Bericht']
 ];
-function makeId(){ return Math.random().toString(36).slice(2,10); }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
-function nowTime(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
-function esc(v){ return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-function euro(n){ return Number(n||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'}); }
-function formatDate(iso){ if(!iso) return ''; const d=new Date(iso); return d.toLocaleDateString('de-DE'); }
-function val(id){ return document.getElementById(id)?.value?.trim() || ''; }
-function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
-function pageHead(title, sub, actions=''){ return `<div class="page-head"><div><h1 class="page-title">${esc(title)}</h1><p class="page-sub">${esc(sub)}</p></div><div class="actions">${actions}</div></div>`; }
-function badgeClass(v){ return ({'Neu':'b-blue','Kontaktiert':'b-orange','Qualifiziert':'b-purple','Gewonnen':'b-green','Verloren':'b-red','In Bearbeitung':'b-orange','Angeboten':'b-blue','Erledigt':'b-green','Hoch':'b-red','Mittel':'b-orange','Niedrig':'b-green','Aktiv':'b-blue','Archiv':'b-purple','Reserviert':'b-orange','Verkauft':'b-green','Offen':'b-orange','Eingereicht':'b-blue','Bezahlt':'b-green'})[v] || 'b-blue'; }
-function badge(v){ return `<span class="badge ${badgeClass(v)}">${esc(v)}</span>`; }
-const seed = {
-  active:'dashboard',
-  monthOffset:0,
-  leads:[{id:makeId(),firma:'Müller Fleischerei',kontakt:'Hans Müller',telefon:'+49 170 555123',email:'h.mueller@mueller.de',status:'Neu',prioritaet:'Hoch',notiz:'Interesse an Schneid- und Verpackungslösung.',naechsterSchritt:'Rückruf Mittwoch',pdfs:[],erstellt:todayISO()}],
-  anfragen:[{id:makeId(),firma:'Bäckerei Weber',kontakt:'Sarah Weber',telefon:'+49 151 222333',email:'s.weber@baeckerei.de',status:'In Bearbeitung',prioritaet:'Mittel',thema:'Vakuummaschine',notiz:'Fragt nach Preis und Lieferzeit.',naechsterSchritt:'Anruf Freitag',pdfs:[],erstellt:todayISO()}],
-  aufgaben:[{id:makeId(),titel:'Müller anrufen',faellig:todayISO(),prioritaet:'Hoch',notiz:'Demo abstimmen',erledigt:false}],
-  hersteller:['GRAEF','BASTRA','Zermat','REX','Atosa'],
-  maschinenDocs:[{id:makeId(),hersteller:'GRAEF',titel:'Masterline Preisliste',dokumentTyp:'Preisliste',preis:'',notiz:'',pdfName:'',pdfText:'',erstellt:todayISO()}],
-  videos:[{id:makeId(),firma:'Müller Fleischerei',titel:'Vollautomat Demo',url:'https://example.com/demo',notiz:'Eigene Bezeichnung frei definierbar',erstellt:todayISO()}],
-  spesen:[{id:makeId(),datum:todayISO(),kategorie:'Tagesspesen 8h',beschreibung:'Außendienst',betrag:14,startOrt:'Sendenhorst',zielOrt:'Münster',zeitStart:'08:00',zeitEnde:'16:30'}],
-  spesenMonthDocs:{}
-};
-function normalizeCustomer(item){
-  if(!item.pdfs){
-    if(item.pdfName || item.pdfText) item.pdfs=[{name:item.pdfName||'PDF', text:item.pdfText||'', type:'PDF'}];
-    else item.pdfs=[];
+const DBKEY='vertrieb_pro_plus_v2';
+const currentWeekKey = getISOWeekKey(new Date());
+const state = normalizeState(load()||{});
+purgeTransientData();
+renderNav();
+renderAll();
+
+function normalizeState(s){
+  return {
+    leads:Array.isArray(s.leads)?s.leads:[],
+    anfragen:Array.isArray(s.anfragen)?s.anfragen:[],
+    videos:Array.isArray(s.videos)?s.videos:[],
+    hersteller:Array.isArray(s.hersteller)?s.hersteller:['GRAEF','Zermat','Bastra'],
+    maschinenDocs:Array.isArray(s.maschinenDocs)?s.maschinenDocs:[],
+    spesen:Array.isArray(s.spesen)?s.spesen:[],
+    spesenMonatsdocs:Array.isArray(s.spesenMonatsdocs)?s.spesenMonatsdocs:[],
+    wochenberichte:Array.isArray(s.wochenberichte)?s.wochenberichte:[],
+    termine:Array.isArray(s.termine)?s.termine:[],
+    kalenderFocus:s.kalenderFocus||null,
+    kalenderMonth:s.kalenderMonth || new Date().toISOString().slice(0,7),
+    kalenderEditId:s.kalenderEditId||null
+  };
+}
+function load(){try{return JSON.parse(localStorage.getItem(DBKEY));}catch(e){return null}}
+function save(){localStorage.setItem(DBKEY, JSON.stringify(state));}
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+function monthKey(dateStr){ const d=new Date(dateStr); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function monthLabel(key){ const [y,m]=key.split('-'); return new Date(Number(y),Number(m)-1,1).toLocaleDateString('de-DE',{month:'long',year:'numeric'}); }
+function euro(v){ return Number(v||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]))}
+function strip(s){return String(s||'').toLowerCase();}
+function getISOWeekKey(d){
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  return `${date.getUTCFullYear()}-KW${String(weekNo).padStart(2,'0')}`;
+}
+function keepLast3Months(list, getDate){
+  const now=new Date();
+  const allowed=[];
+  for(let i=0;i<3;i++){
+    const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    allowed.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
   }
-  return item;
+  return list.filter(x=>allowed.includes(getDate(x)));
 }
-function loadState(){
-  try{
-    const raw=localStorage.getItem(LS_KEY);
-    const merged = raw ? {...clone(seed), ...JSON.parse(raw)} : clone(seed);
-    merged.leads=(merged.leads||[]).map(normalizeCustomer);
-    merged.anfragen=(merged.anfragen||[]).map(normalizeCustomer);
-    merged.hersteller = Array.from(new Set((merged.hersteller||[]).filter(Boolean)));
-    merged.spesenMonthDocs = merged.spesenMonthDocs || {};
-    return merged;
-  }catch(e){ return clone(seed); }
+function purgeTransientData(){
+  state.spesen = keepLast3Months(state.spesen, x=>x.monat || monthKey(x.datum));
+  state.spesenMonatsdocs = keepLast3Months(state.spesenMonatsdocs, x=>x.monat);
+  state.wochenberichte = state.wochenberichte.filter(x=>x.kw===currentWeekKey);
+  save();
 }
-let state = loadState();
-function saveState(){ pruneSpesenData(); localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-function navHtml(active){ return NAVS.map(n=>`<button class="nav-btn ${n.key===active?'active':''}" onclick="setActive('${n.key}')"><span class="nav-dot"></span>${esc(n.label)}</button>`).join(''); }
-function mobileNavHtml(active){ return NAVS.map(n=>`<button class="mnav-btn ${n.key===active?'active':''}" onclick="setActive('${n.key}')"><span class="mnav-icon"></span><span>${esc(n.label)}</span></button>`).join(''); }
-function setActive(key){ state.active=key; saveState(); render(); }
-function handleFab(){ ({dashboard:openQuickCreate,leads:()=>openCustomerForm('lead'),anfragen:()=>openCustomerForm('anfrage'),aufgaben:openTaskForm,maschinen:openMaschinenForm,videos:openVideoForm,spesen:openSpesenForm,kalender:openTaskForm}[state.active]||openQuickCreate)(); }
-function render(){ document.getElementById('sidebarNav').innerHTML=navHtml(state.active); document.getElementById('mobileNav').innerHTML=mobileNavHtml(state.active); document.getElementById('main').innerHTML = Object.fromEntries(NAVS.map(n=>[n.key,`<section class="screen ${state.active===n.key?'active':''}"><div class="screen-inner" id="view-${n.key}"></div></section>`]))[state.active]; ({dashboard:renderDashboard,leads:renderLeads,anfragen:renderAnfragen,aufgaben:renderAufgaben,maschinen:renderMaschinen,videos:renderVideos,spesen:renderSpesen,kalender:renderKalender}[state.active]||renderDashboard)(); }
-function openModal(html){ document.getElementById('sheet').innerHTML = `<div class="sheet-handle"></div>${html}`; document.getElementById('modal').classList.add('open'); }
-function closeModal(){ document.getElementById('modal').classList.remove('open'); document.getElementById('sheet').innerHTML=''; tempSession=[]; tempMonthDocs=[]; }
-function sheetFrame(title, sub, body){ return `<h2 class="sheet-title">${esc(title)}</h2><div class="sheet-sub">${esc(sub)}</div>${body}`; }
-function downloadFile(name, content, type){ const blob=new Blob([content],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500); }
-function exportBackup(){ downloadFile('vertrieb-pro-backup.json', JSON.stringify(state,null,2), 'application/json;charset=utf-8'); }
-function importBackup(){ document.getElementById('backupInput').click(); }
-document.getElementById('backupInput').addEventListener('change', async (e)=>{ const file=e.target.files?.[0]; if(!file) return; try{ const parsed=JSON.parse(await file.text()); state={...clone(seed), ...parsed}; state.leads=(state.leads||[]).map(normalizeCustomer); state.anfragen=(state.anfragen||[]).map(normalizeCustomer); saveState(); render(); alert('Backup importiert.'); }catch(err){ alert('Import fehlgeschlagen.'); } e.target.value=''; });
-function attachmentSearchText(item){ return (item.pdfs||[]).map(p=>[p.name,p.text,p.type].join(' ')).join(' '); }
-function pdfSnippet(text, q=''){
-  const clean = (text||'').replace(/\s+/g,' ').trim();
-  if(!clean) return 'Kein auslesbarer Text gefunden.';
-  if(!q) return esc(clean.slice(0,360)) + (clean.length>360 ? ' …' : '');
-  const idx = clean.toLowerCase().indexOf(q.toLowerCase());
-  const start = Math.max(0, idx - 120);
-  const part = clean.slice(start, start + 320);
-  return highlight(part, q) + (start + 320 < clean.length ? ' …' : '');
+function renderNav(){
+  const side=document.getElementById('sideNav');
+  const bottom=document.getElementById('bottomNav');
+  const html = NAVS.map(([id,label],i)=>`<button class="${i===0?'active':''}" data-screen="${id}">${label}</button>`).join('');
+  side.innerHTML=html; bottom.innerHTML=html;
+  document.querySelectorAll('[data-screen]').forEach(btn=>btn.onclick=()=>showScreen(btn.dataset.screen));
 }
-function highlight(text, q){ if(!q) return esc(text||''); const safe=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); return esc(text||'').replace(new RegExp(safe,'ig'), m=>`<mark>${m}</mark>`); }
-async function extractPdfText(file){
-  if(!window.pdfjsLib || !pdfjsLib.getDocument) throw new Error('PDF.js nicht geladen');
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf, useWorker: true, isEvalSupported: false }).promise;
-  let pages = [];
-  for(let i=1;i<=pdf.numPages;i++){
-    const page = await pdf.getPage(i);
-    const tc = await page.getTextContent({ normalizeWhitespace: true, disableCombineTextItems: false });
-    const items = (tc.items || []).map(it => ({
-      str: (it.str || '').trim(),
-      x: (it.transform && it.transform[4]) || 0,
-      y: (it.transform && it.transform[5]) || 0
-    })).filter(it => it.str);
-    items.sort((a,b) => Math.abs(b.y - a.y) > 2 ? b.y - a.y : a.x - b.x);
-    let currentY = null;
-    let current = [];
-    let lines = [];
-    for(const it of items){
-      if(currentY === null || Math.abs(it.y - currentY) <= 2.5){
-        current.push(it.str);
-        if(currentY === null) currentY = it.y;
-      } else {
-        lines.push(current.join(' '));
-        current = [it.str];
-        currentY = it.y;
-      }
-    }
-    if(current.length) lines.push(current.join(' '));
-    pages.push(lines.join('\n'));
-  }
-  return pages.join('\n\n').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));
+  document.querySelectorAll('[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));
 }
-function guessDocMeta(text,name=''){ const joined = `${name} ${text}`.replace(/\s+/g,' ');
-  const priceMatch = joined.match(/(?:€|EUR)?\s?([0-9]{1,3}(?:[\. ][0-9]{3})*(?:,[0-9]{2})?)/i);
-  const modelMatch = joined.match(/\b([A-Z]{1,4}[\- ]?[0-9]{2,5}[A-Z]{0,3})\b/);
-  return { preis: priceMatch ? priceMatch[1].replace(/ /g,'') : '', modell: modelMatch ? modelMatch[1] : '' };
+function renderAll(){renderDashboard();renderCRM('leads','Leads',state.leads);renderCRM('anfragen','Anfragen',state.anfragen);renderMaschinen();renderVideos();renderSpesen();renderKalender();renderWochenbericht();}
+
+function badge(text,type='blue'){return `<span class="badge b-${type}">${esc(text)}</span>`}
+
+function renderDashboard(){
+  const today = new Date().toISOString().slice(0,10);
+  const spMonat = keepLast3Months(state.spesen, x=>x.monat||monthKey(x.datum)).filter(x=>x.monat===monthKey(today)||monthKey(x.datum)===monthKey(today));
+  const wochen = state.wochenberichte.filter(x=>x.kw===currentWeekKey);
+  const html = `
+    <div class="hero">
+      <h1>Vertrieb im Griff</h1>
+      <p>Schnelle Eingabe für Kunden, Maschinen, Videos, Spesen und Wochenberichte.</p>
+    </div>
+    <div class="grid grid-4">
+      <div class="kpi"><div class="label">Leads</div><div class="value">${state.leads.length}</div><div class="sub">aktive Kundeneinträge</div></div>
+      <div class="kpi"><div class="label">Anfragen</div><div class="value">${state.anfragen.length}</div><div class="sub">offene Vorgänge</div></div>
+      <div class="kpi"><div class="label">Videos</div><div class="value">${state.videos.length}</div><div class="sub">verknüpfte Kundenlinks</div></div>
+      <div class="kpi"><div class="label">Spesen Monat</div><div class="value">${euro(spMonat.reduce((a,b)=>a+Number(b.betrag||0),0))}</div><div class="sub">${monthLabel(monthKey(today))}</div></div>
+    </div>
+    <div class="grid quick" style="margin-top:14px">
+      <div class="card"><div class="section-head"><div><h2>Kaltaquise</h2><p>Direkter Einstieg für neue Kontakte.</p></div></div><div class="row"><button class="btn-primary" onclick="showScreen('leads');document.getElementById('leadFirma')?.focus()">Lead anlegen</button><button class="btn-secondary" onclick="showScreen('anfragen');document.getElementById('anfrageFirma')?.focus()">Anfrage anlegen</button></div></div>
+      <div class="card"><div class="section-head"><div><h2>Videos</h2><p>Links pro Firma speichern und suchen.</p></div></div><div class="row"><button class="btn-primary" onclick="showScreen('videos');document.getElementById('videoFirma')?.focus()">Video-Link hinzufügen</button></div></div>
+      <div class="card"><div class="section-head"><div><h2>Kalender</h2><p>Alle Erinnerungen und Termine im Überblick.</p></div></div><div class="row"><button class="btn-primary" onclick="showScreen('kalender')">Kalender öffnen</button></div></div>
+      <div class="card"><div class="section-head"><div><h2>Wochenbericht</h2><p>${currentWeekKey} · ${wochen.length} Einträge</p></div></div><div class="row"><button class="btn-primary" onclick="showScreen('wochenbericht');document.getElementById('wbFirma')?.focus()">Bericht öffnen</button></div></div>
+    </div>`;
+  document.getElementById('dashboard').innerHTML=html;
 }
-let tempSession=[]; let tempMonthDocs=[];
-function startTempSession(items=[]){ tempSession = clone(items||[]); }
-function startMonthDocSession(monthKey){ tempMonthDocs = clone(state.spesenMonthDocs[monthKey] || []); }
-async function handleTempPdfUpload(input, kind='pdf'){
-  const files = Array.from(input.files || []);
-  if(!files.length) return;
-  for(const file of files){
-    let text = '';
-    let parseHint = '';
-    try{
-      text = await extractPdfText(file);
-      if(!text) parseHint = 'Kein auslesbarer Text gefunden. Wahrscheinlich Scan-PDF oder Bild-PDF.';
-    }catch(e){
-      parseHint = 'PDF konnte nicht gelesen werden.';
-    }
-    const meta = guessDocMeta(text, file.name);
-    tempSession.push({id:makeId(),name:file.name,text,parseHint,typ:kind==='maschine'?'Maschinen-PDF':'PDF',modell:meta.modell||'',preis:meta.preis||''});
-  }
-  input.value='';
-  renderTempPdfList();
-}
-async function handleMonthPdfUpload(input){
-  const files = Array.from(input.files || []);
-  if(!files.length) return;
-  for(const file of files){
-    let text = '';
-    let parseHint = '';
-    try{
-      text = await extractPdfText(file);
-      if(!text) parseHint = 'Kein auslesbarer Text gefunden. Wahrscheinlich Scan-PDF oder Bild-PDF.';
-    }catch(e){
-      parseHint = 'PDF konnte nicht gelesen werden.';
-    }
-    tempMonthDocs.push({id:makeId(),name:file.name,text,parseHint});
-  }
-  input.value='';
-  renderMonthPdfList();
-}
-function renderTempPdfList(){
-  const el=document.getElementById('tempPdfList');
-  if(!el) return;
-  el.innerHTML = tempSession.length ? tempSession.map(p=>`<div class="pdf-row"><div class="card-title-row"><div><strong>${esc(p.name)}</strong><div class="muted">${esc(p.typ||'PDF')}${p.modell?` · Modell ${esc(p.modell)}`:''}${p.preis?` · Preis ${esc(p.preis)}`:''}</div></div><button class="btn red small" onclick="removeTempPdf('${p.id}')">Löschen</button></div><div class="pdf-snippet">${pdfSnippet(p.text)}${p.parseHint?`<div class="muted" style="margin-top:8px">${esc(p.parseHint)}</div>`:''}</div></div>`).join('') : '<div class="empty">Noch keine PDFs ausgewählt.</div>';
-}
-function renderMonthPdfList(){
-  const el=document.getElementById('monthPdfList');
-  if(!el) return;
-  el.innerHTML = tempMonthDocs.length ? tempMonthDocs.map(p=>`<div class="pdf-row"><div class="card-title-row"><div><strong>${esc(p.name)}</strong></div><button class="btn red small" onclick="removeMonthPdf('${p.id}')">Löschen</button></div><div class="pdf-snippet">${pdfSnippet(p.text)}${p.parseHint?`<div class="muted" style="margin-top:8px">${esc(p.parseHint)}</div>`:''}</div></div>`).join('') : '<div class="empty">Noch keine Monats-PDFs hinterlegt.</div>';
-}
-function openQuickCreate(){ openModal(sheetFrame('Neu anlegen','Direkter Sprung in den passenden Bereich.', `<div class="grid two">${[['Lead','lead'],['Anfrage','anfrage'],['Aufgabe','task'],['Maschinen-Dokument','maschine'],['Video','video'],['Spese','spese']].map(([label,key])=>`<button class="btn primary" style="min-height:70px" onclick="closeModal(); ({lead:()=>openCustomerForm('lead'),anfrage:()=>openCustomerForm('anfrage'),task:openTaskForm,maschine:openMaschinenForm,video:openVideoForm,spese:openSpesenForm})['${key}']()">${label}</button>`).join('')}</div>`)); }
-function openCustomerForm(kind,id=''){ const base=kind==='anfrage'?{firma:'',kontakt:'',telefon:'',email:'',status:'Neu',prioritaet:'Mittel',thema:'',notiz:'',naechsterSchritt:'',pdfs:[],erstellt:todayISO()}:{firma:'',kontakt:'',telefon:'',email:'',status:'Neu',prioritaet:'Mittel',notiz:'',naechsterSchritt:'',pdfs:[],erstellt:todayISO()}; const source=(kind==='anfrage'?state.anfragen:state.leads).find(x=>x.id===id); const x=normalizeCustomer(source?clone(source):base); startTempSession(x.pdfs||[]); openModal(sheetFrame(id?'Eintrag bearbeiten':(kind==='anfrage'?'Anfrage anlegen':'Lead anlegen'), kind==='anfrage'?'Anfragen mit PDF-Ablage direkt am Kunden.':'Leads mit PDF-Ablage direkt am Kunden.', `<div class="form-grid"><div class="field"><label>Firma</label><input id="cf_firma" value="${esc(x.firma)}"></div><div class="field"><label>Kontakt</label><input id="cf_kontakt" value="${esc(x.kontakt)}"></div><div class="field"><label>Telefon</label><input id="cf_telefon" value="${esc(x.telefon)}"></div><div class="field"><label>E-Mail</label><input id="cf_email" value="${esc(x.email)}"></div><div class="field"><label>Status</label><select id="cf_status">${(kind==='anfrage'?['Neu','In Bearbeitung','Angeboten','Erledigt']:['Neu','Kontaktiert','Qualifiziert','Gewonnen','Verloren']).map(v=>`<option ${x.status===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="field"><label>Priorität</label><select id="cf_prio">${['Hoch','Mittel','Niedrig'].map(v=>`<option ${x.prioritaet===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div>${kind==='anfrage'?`<div class="field full"><label>Thema</label><input id="cf_thema" value="${esc(x.thema||'')}"></div>`:''}<div class="field full"><label>Nächster Schritt</label><input id="cf_next" value="${esc(x.naechsterSchritt||'')}"></div><div class="field full"><label>Notiz</label><textarea id="cf_notiz">${esc(x.notiz||'')}</textarea></div><div class="field full"><label>PDF hinzufügen</label><input type="file" accept="application/pdf" multiple onchange="handleTempPdfUpload(this)"></div><div class="field full"><div id="tempPdfList"></div></div></div><div class="actions" style="margin-top:18px"><button class="btn green" onclick="saveCustomer('${kind}','${id}')">Speichern</button></div>`)); renderTempPdfList(); }
-function saveCustomer(kind,id=''){ const item={id:id||makeId(),firma:val('cf_firma'),kontakt:val('cf_kontakt'),telefon:val('cf_telefon'),email:val('cf_email'),status:val('cf_status'),prioritaet:val('cf_prio'),notiz:val('cf_notiz'),naechsterSchritt:val('cf_next'),pdfs:clone(tempSession),erstellt:todayISO()}; if(kind==='anfrage') item.thema=val('cf_thema'); const arr = kind==='anfrage'?state.anfragen:state.leads; const idx=arr.findIndex(x=>x.id===item.id); if(idx>=0) arr[idx]=item; else arr.unshift(item); saveState(); closeModal(); render(); }
-function openTaskForm(id=''){ const x=clone((state.aufgaben||[]).find(t=>t.id===id) || {titel:'',faellig:todayISO(),prioritaet:'Mittel',notiz:'',erledigt:false}); openModal(sheetFrame(id?'Aufgabe bearbeiten':'Aufgabe anlegen','Termine, Nachfassen und offene Punkte.', `<div class="form-grid"><div class="field"><label>Titel</label><input id="tf_titel" value="${esc(x.titel)}"></div><div class="field"><label>Fällig</label><input type="date" id="tf_faellig" value="${esc(x.faellig)}"></div><div class="field"><label>Priorität</label><select id="tf_prio">${['Hoch','Mittel','Niedrig'].map(v=>`<option ${x.prioritaet===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="field full"><label>Notiz</label><textarea id="tf_notiz">${esc(x.notiz||'')}</textarea></div></div><div class="actions" style="margin-top:18px"><button class="btn green" onclick="saveTask('${id}')">Speichern</button></div>`)); }
-function saveTask(id=''){ const item={id:id||makeId(),titel:val('tf_titel'),faellig:val('tf_faellig')||todayISO(),prioritaet:val('tf_prio'),notiz:val('tf_notiz'),erledigt:(state.aufgaben||[]).find(t=>t.id===id)?.erledigt||false}; const arr=state.aufgaben||[]; const idx=arr.findIndex(x=>x.id===item.id); if(idx>=0) arr[idx]=item; else arr.unshift(item); state.aufgaben=arr; saveState(); closeModal(); render(); }
-function toggleTask(id){ const item=(state.aufgaben||[]).find(t=>t.id===id); if(!item) return; item.erledigt=!item.erledigt; saveState(); render(); }
-function openHerstellerManager(){ openModal(sheetFrame('Hersteller verwalten','Hersteller manuell pflegen für Maschinen, Preislisten und Unterlagen.', `<div class="note">Vorhandene Hersteller: ${(state.hersteller||[]).map(esc).join(', ') || 'noch keine'}</div><div class="form-grid" style="margin-top:16px"><div class="field full"><label>Neuer Hersteller</label><input id="hm_name" placeholder="z. B. GRAEF"></div></div><div class="actions" style="margin-top:18px"><button class="btn green" onclick="saveHersteller()">Hersteller hinzufügen</button></div>`)); }
-function saveHersteller(){ const name=val('hm_name'); if(!name) return; if(!(state.hersteller||[]).includes(name)) state.hersteller.unshift(name); saveState(); closeModal(); render(); }
-function openMaschinenForm(id=''){ const x=clone((state.maschinenDocs||[]).find(d=>d.id===id) || {hersteller:(state.hersteller||[])[0]||'',titel:'',dokumentTyp:'Maschine',modell:'',preis:'',notiz:'',pdfName:'',pdfText:'',erstellt:todayISO()}); startTempSession(x.pdfName||x.pdfText ? [{id:makeId(),name:x.pdfName||'PDF',text:x.pdfText||'',typ:'Maschinen-PDF',modell:x.modell||'',preis:x.preis||''}] : []); openModal(sheetFrame(id?'Maschinen-Dokument bearbeiten':'Maschinen-Dokument anlegen','Hier werden PDFs wie Maschinen, Preislisten und Unterlagen dem Hersteller zugeordnet und durchsuchbar gemacht.', `<div class="form-grid"><div class="field"><label>Hersteller</label><select id="mf_hersteller">${(state.hersteller||[]).map(h=>`<option ${x.hersteller===h?'selected':''}>${esc(h)}</option>`).join('')}</select></div><div class="field"><label>Dokumenttyp</label><select id="mf_typ">${['Maschine','Preisliste','Unterlage','Anleitung'].map(v=>`<option ${x.dokumentTyp===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="field full"><label>Titel</label><input id="mf_titel" value="${esc(x.titel||'')}"></div><div class="field"><label>Modell</label><input id="mf_modell" value="${esc(x.modell||'')}"></div><div class="field"><label>Preis</label><input id="mf_preis" value="${esc(x.preis||'')}"></div><div class="field full"><label>Notiz</label><textarea id="mf_notiz">${esc(x.notiz||'')}</textarea></div><div class="field full"><label>PDF hochladen</label><input type="file" accept="application/pdf" onchange="handleTempPdfUpload(this,'maschine')"></div><div class="field full"><div id="tempPdfList"></div></div></div><div class="actions" style="margin-top:18px"><button class="btn green" onclick="saveMaschinenDoc('${id}')">Speichern</button></div>`)); renderTempPdfList(); }
-function saveMaschinenDoc(id=''){ const first=tempSession[0]||{}; const item={id:id||makeId(),hersteller:val('mf_hersteller'),titel:val('mf_titel'),dokumentTyp:val('mf_typ'),modell:val('mf_modell')||first.modell||'',preis:val('mf_preis')||first.preis||'',notiz:val('mf_notiz'),pdfName:first.name||'',pdfText:first.text||'',erstellt:todayISO()}; const arr=state.maschinenDocs||[]; const idx=arr.findIndex(x=>x.id===item.id); if(idx>=0) arr[idx]=item; else arr.unshift(item); state.maschinenDocs=arr; if(item.hersteller && !(state.hersteller||[]).includes(item.hersteller)) state.hersteller.unshift(item.hersteller); saveState(); closeModal(); render(); }
-function openVideoForm(id=''){ const x=clone((state.videos||[]).find(v=>v.id===id) || {firma:'',titel:'',url:'',notiz:'',erstellt:todayISO()}); openModal(sheetFrame(id?'Video bearbeiten':'Video anlegen','Video-Links Firmen zuordnen, selbst benennen und über Suche schnell wiederfinden.', `<div class="form-grid"><div class="field"><label>Firma</label><input id="vf_firma" value="${esc(x.firma||'')}"></div><div class="field"><label>Eigener Video-Name</label><input id="vf_titel" value="${esc(x.titel||'')}"></div><div class="field full"><label>Video-Link</label><input id="vf_url" value="${esc(x.url||'')}" placeholder="https://..."></div><div class="field full"><label>Notiz</label><textarea id="vf_notiz">${esc(x.notiz||'')}</textarea></div></div><div class="actions" style="margin-top:18px"><button class="btn green" onclick="saveVideo('${id}')">Speichern</button></div>`)); }
-function saveVideo(id=''){ const item={id:id||makeId(),firma:val('vf_firma'),titel:val('vf_titel'),url:val('vf_url'),notiz:val('vf_notiz'),erstellt:todayISO()}; const arr=state.videos||[]; const idx=arr.findIndex(x=>x.id===item.id); if(idx>=0) arr[idx]=item; else arr.unshift(item); state.videos=arr; saveState(); closeModal(); render(); }
-function openSpesenForm(id=''){ const x=clone((state.spesen||[]).find(s=>s.id===id) || {datum:todayISO(),kategorie:'Tagesspesen 8h',beschreibung:'',betrag:14,startOrt:'',zielOrt:'',zeitStart:'08:00',zeitEnde:'16:00'}); openModal(sheetFrame(id?'Spese bearbeiten':'Spese anlegen','Tagesspesen mit Startort, Zielort sowie Zeit Start und Ende.', `<div class="note success" style="margin-bottom:16px">Automatik: ab 8 Stunden = 14,00 € · ab 24 Stunden = 28,00 €</div><div class="form-grid"><div class="field"><label>Datum</label><input type="date" id="sf_datum" value="${esc(x.datum)}"></div><div class="field"><label>Typ</label><select id="sf_typ" onchange="syncSpesenPreset()">${['Tagesspesen 8h','Tagesspesen 24h','Sonstige Ausgabe'].map(v=>`<option ${x.kategorie===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="field"><label>Startort</label><input id="sf_start" value="${esc(x.startOrt||'')}"></div><div class="field"><label>Zielort</label><input id="sf_ziel" value="${esc(x.zielOrt||'')}"></div><div class="field"><label>Zeit Start</label><input type="time" id="sf_ts" value="${esc(x.zeitStart||'08:00')}"></div><div class="field"><label>Zeit Ende</label><input type="time" id="sf_te" value="${esc(x.zeitEnde||'16:00')}"></div><div class="field full"><label>Beschreibung</label><input id="sf_desc" value="${esc(x.beschreibung||'')}"></div><div class="field"><label>Betrag</label><input id="sf_betrag" type="number" step="0.01" value="${esc(x.betrag||0)}"></div></div><div class="actions" style="margin-top:18px"><button class="btn green" onclick="saveSpese('${id}')">Speichern</button></div>`)); syncSpesenPreset(); }
-function syncSpesenPreset(){ const typ=val('sf_typ'); const el=document.getElementById('sf_betrag'); if(!el) return; if(typ==='Tagesspesen 8h'){ el.value='14'; el.readOnly=true; } else if(typ==='Tagesspesen 24h'){ el.value='28'; el.readOnly=true; } else { el.readOnly=false; } }
-function saveSpese(id=''){ const typ=val('sf_typ'); let betrag=Number(val('sf_betrag')||0); if(typ==='Tagesspesen 8h') betrag=14; if(typ==='Tagesspesen 24h') betrag=28; const item={id:id||makeId(),datum:val('sf_datum')||todayISO(),kategorie:typ,beschreibung:val('sf_desc'),betrag,startOrt:val('sf_start'),zielOrt:val('sf_ziel'),zeitStart:val('sf_ts'),zeitEnde:val('sf_te')}; const arr=state.spesen||[]; const idx=arr.findIndex(x=>x.id===item.id); if(idx>=0) arr[idx]=item; else arr.unshift(item); state.spesen=arr; saveState(); closeModal(); render(); }
-function openMonthPdfManager(){ const sel=selectedMonth(); startMonthDocSession(sel.key); openModal(sheetFrame(`Monats-PDFs ${MONTHS[sel.month]} ${sel.year}`,'Zusatz-PDFs je Monat hinterlegen. In der App bleiben nur die letzten 3 Monate erhalten.', `<div class="form-grid"><div class="field full"><label>PDF hochladen</label><input type="file" accept="application/pdf" multiple onchange="handleMonthPdfUpload(this)"></div><div class="field full"><div id="monthPdfList"></div></div></div><div class="actions" style="margin-top:18px"><button class="btn green" onclick="saveMonthPdfs('${sel.key}')">Speichern</button></div>`)); renderMonthPdfList(); }
-function saveMonthPdfs(key){ state.spesenMonthDocs[key]=clone(tempMonthDocs); saveState(); closeModal(); render(); }
-function exportSpesenCsv(){ const sel=selectedMonth(); const rows=(state.spesen||[]).filter(x=>(x.datum||'').startsWith(sel.key)); const header='Datum;Typ;Startort;Zielort;Zeit Start;Zeit Ende;Beschreibung;Betrag'; const lines=rows.map(r=>[r.datum,r.kategorie,r.startOrt,r.zielOrt,r.zeitStart,r.zeitEnde,(r.beschreibung||'').replace(/;/g,','),String(r.betrag).replace('.',',')].join(';')); downloadFile(`spesen-${sel.key}.csv`, [header,...lines].join('\n'), 'text/csv;charset=utf-8'); }
-function exportSpesenPdf(){
-  if(!jsPDF){
-    alert('PDF-Export ist in der lokalen Vorschau ohne Internet nicht verfügbar. Online über GitHub Pages funktioniert es.');
-    return;
-  }
-  const sel=selectedMonth();
-  const rows=(state.spesen||[]).filter(x=>(x.datum||'').startsWith(sel.key)).sort((a,b)=>(a.datum+a.zeitStart).localeCompare(b.datum+b.zeitStart));
-  const total=rows.reduce((s,x)=>s+Number(x.betrag||0),0);
-  const docs=state.spesenMonthDocs[sel.key]||[];
-  const doc=new jsPDF({orientation:'l',unit:'mm',format:'a4'});
-  const pageH=210, left=12, right=285, lineH=5;
-  const cols={datum:12, typ:38, start:82, ziel:122, zeit:162, beschr:198, betrag:284};
-  let y=16;
-  function addHeader(){
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(18);
-    doc.text(`Spesen ${MONTHS[sel.month]} ${sel.year}`, left, y);
-    doc.setFontSize(11);
-    doc.setFont('helvetica','normal');
-    doc.text('AS Technical Solution GmbH', left, y+7);
-    doc.text('Robert Kutschke', left, y+13);
-    doc.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')}`, right, y+7, {align:'right'});
-    doc.text(`Monatsgesamtbetrag: ${euro(total)}`, right, y+13, {align:'right'});
-    y += 22;
-    doc.setDrawColor(180);
-    doc.line(left, y, right, y);
-    y += 6;
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(9.5);
-    doc.text('Datum', cols.datum, y);
-    doc.text('Typ', cols.typ, y);
-    doc.text('Startort', cols.start, y);
-    doc.text('Zielort', cols.ziel, y);
-    doc.text('Zeit', cols.zeit, y);
-    doc.text('Beschreibung', cols.beschr, y);
-    doc.text('Betrag', cols.betrag, y, {align:'right'});
-    y += 3;
-    doc.line(left, y, right, y);
-    y += 5;
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(9);
-  }
-  addHeader();
-  rows.forEach(r=>{
-    const datum=formatDate(r.datum);
-    const typLines=doc.splitTextToSize(r.kategorie||'', 40);
-    const startLines=doc.splitTextToSize(r.startOrt||'', 36);
-    const zielLines=doc.splitTextToSize(r.zielOrt||'', 36);
-    const zeitLines=doc.splitTextToSize([r.zeitStart||'', r.zeitEnde||''].filter(Boolean).join(' - '), 30);
-    const descLines=doc.splitTextToSize(r.beschreibung||'', 72);
-    const rowLines=Math.max(1,typLines.length,startLines.length,zielLines.length,zeitLines.length,descLines.length);
-    const rowH=rowLines*lineH + 2;
-    if(y + rowH > pageH - 18){ doc.addPage(); y=16; addHeader(); }
-    doc.text(datum, cols.datum, y);
-    doc.text(typLines, cols.typ, y);
-    doc.text(startLines, cols.start, y);
-    doc.text(zielLines, cols.ziel, y);
-    doc.text(zeitLines, cols.zeit, y);
-    doc.text(descLines, cols.beschr, y);
-    doc.text(euro(r.betrag), cols.betrag, y, {align:'right'});
-    y += rowH;
-    doc.setDrawColor(225);
-    doc.line(left, y-1, right, y-1);
-    y += 2;
+
+function renderCRM(screenId,title,list){
+  const el=document.getElementById(screenId);
+  const isLead=screenId==='leads';
+  const prefix=isLead?'lead':'anfrage';
+  const singular = isLead ? 'Lead' : 'Anfrage';
+  const searchPlaceholder = title+' suchen';
+  el.innerHTML=`
+    <div class="section-head"><div><h2>${title}</h2><p>Kunden mit PDFs, Suchfunktion, automatischer Texterkennung und internem Kalender.</p></div></div>
+    <div class="split">
+      <div class="card">
+        <div class="row">
+          <div><label>Firma</label><input id="${prefix}Firma" /></div>
+          <div><label>Ansprechpartner</label><input id="${prefix}Kontakt" /></div>
+        </div>
+        <div class="row">
+          <div><label>Telefon</label><input id="${prefix}Tel" /></div>
+          <div><label>E-Mail</label><input id="${prefix}Mail" /></div>
+        </div>
+        <div class="row">
+          <div><label>Straße</label><input id="${prefix}Adresse" /></div>
+          <div><label>PLZ</label><input id="${prefix}Plz" /></div>
+          <div><label>Ort</label><input id="${prefix}Ort" /></div>
+        </div>
+        <div class="row">
+          <div><label>Status</label><select id="${prefix}Status"><option>Neu</option><option>Kontaktiert</option><option>Angebot</option><option>Nachfassen</option></select></div>
+          <div><label>Interesse</label><input id="${prefix}Interesse" placeholder="z. B. GRAEF" /></div>
+          <div><label>Bereich / Produkt</label><input id="${prefix}Produkt" placeholder="z. B. Aufschnittschneidmaschinen" /></div>
+        </div>
+        <div class="row">
+          <div><label>Datum</label><input id="${prefix}Datum" type="date" /></div>
+          <div><label>Uhrzeit</label><input id="${prefix}Uhrzeit" type="time" /></div>
+        </div>
+        <div><label>Nächster Schritt</label><input id="${prefix}Next" placeholder="z. B. nach Ostern anrufen" /></div>
+        <div class="row">
+          <div><label>Angebotsnummer</label><input id="${prefix}AngebotNr" placeholder="z. B. A-2026-104" /></div>
+          <div><label>Erinnerung Datum</label><input id="${prefix}RemDate" type="date" /></div>
+          <div><label>Erinnerung Uhrzeit</label><input id="${prefix}RemTime" type="time" /></div>
+        </div>
+        <div><label>Automatische Kundenübersicht</label><textarea id="${prefix}Overview" readonly placeholder="Wird automatisch aus Text, PDF und Feldern aufgebaut."></textarea></div>
+        <div><label>Bericht</label><textarea id="${prefix}Bericht" placeholder="Bericht / Gesprächsinhalt für ${singular}."></textarea></div>
+        <div><label>Quelltext / Notiz</label><textarea id="${prefix}Notiz" placeholder="Text einfügen oder frei schreiben – die App zieht die Daten direkt in die Felder."></textarea></div>
+        <div class="small" style="margin:8px 0 0">AS Technical Solution wird bei der Erkennung ignoriert. Datum, Uhrzeit, Interesse, Produkt und nächster Schritt werden wenn möglich direkt aus dem Text übernommen.</div>
+        <div style="margin-top:10px"><label>PDF-Dateien</label><input id="${prefix}Pdf" type="file" accept="application/pdf" multiple /></div>
+        <div class="small" style="margin:8px 0 10px">PDF-Inhalt wird bei normalen Text-PDFs gelesen und in Felder und Suche übernommen.</div>
+        <div class="row auto"><button class="btn-secondary" id="${prefix}Parse">Text in Felder übernehmen</button><button class="btn-primary" id="${prefix}Save">${singular} speichern</button></div>
+      </div>
+      <div>
+        <div class="toolbar"><input id="${prefix}Search" placeholder="${searchPlaceholder}" /></div>
+        <div id="${prefix}List" class="list"></div>
+      </div>
+    </div>`;
+
+  const softParse = ()=>applyParsedDataToForm(prefix, null, false);
+  const hardParse = ()=>applyParsedDataToForm(prefix, null, true);
+  document.getElementById(prefix+'Parse').onclick = hardParse;
+  document.getElementById(prefix+'Notiz').addEventListener('blur', softParse);
+  document.getElementById(prefix+'Search').oninput=()=>renderCRMList(prefix,list);
+  document.getElementById(prefix+'Pdf').addEventListener('change', async()=>{
+    const parsedPdfs = await readPdfFiles(document.getElementById(prefix+'Pdf').files);
+    document.getElementById(prefix+'Pdf').dataset.parsed = JSON.stringify(parsedPdfs);
+    applyParsedDataToForm(prefix, parsedPdfs, false);
   });
-  if(docs.length){
-    doc.addPage();
-    y=16;
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(16);
-    doc.text(`Zusatz-PDFs ${MONTHS[sel.month]} ${sel.year}`, left, y);
-    y += 10;
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(10);
-    docs.forEach((p,idx)=>{
-      const title=`${idx+1}. ${p.name}`;
-      const body=(p.text||'').trim() || p.parseHint || 'Kein auslesbarer Text gefunden.';
-      const bodyLines=doc.splitTextToSize(body.slice(0,1800), 265);
-      const blockH=8 + bodyLines.length*4 + 6;
-      if(y + blockH > pageH - 14){ doc.addPage(); y=16; }
-      doc.setFont('helvetica','bold');
-      doc.text(title, left, y);
-      y += 6;
-      doc.setFont('helvetica','normal');
-      doc.text(bodyLines, left, y);
-      y += bodyLines.length*4 + 6;
-      doc.setDrawColor(220);
-      doc.line(left, y-2, right, y-2);
-      y += 4;
+
+  document.getElementById(prefix+'Save').onclick=async()=>{
+    let pdfs = [];
+    try{ pdfs = JSON.parse(document.getElementById(prefix+'Pdf').dataset.parsed || '[]'); }catch(e){ pdfs=[]; }
+    if(!pdfs.length) pdfs = await readPdfFiles(document.getElementById(prefix+'Pdf').files);
+    const rawNotiz=val(prefix+'Notiz');
+    const rawBericht=val(prefix+'Bericht');
+    const mergedText=[rawNotiz, ...pdfs.map(p=>p.text||'')].filter(Boolean).join('\n');
+    const extracted=extractCustomerData(mergedText);
+    const firma=val(prefix+'Firma')||extracted.firma;
+    if(!firma) return alert('Firma fehlt');
+    const kontakt=val(prefix+'Kontakt')||extracted.kontakt;
+    const tel=normalizePhone(val(prefix+'Tel')||extracted.tel);
+    const mail=(val(prefix+'Mail')||extracted.mail||'').toLowerCase();
+    const adresse=val(prefix+'Adresse')||extracted.adresse||'';
+    const plz=val(prefix+'Plz')||extracted.plz||'';
+    const ort=val(prefix+'Ort')||extracted.ort||'';
+    const datum=val(prefix+'Datum')||extracted.datum||'';
+    const uhrzeit=val(prefix+'Uhrzeit')||extracted.uhrzeit||'';
+    const interesse=val(prefix+'Interesse')||extracted.interesse||'';
+    const produkt=val(prefix+'Produkt')||extracted.produkt||'';
+    const nextStep=val(prefix+'Next')||extracted.naechsterSchritt||'';
+    const angebotNr=val(prefix+'AngebotNr')||extracted.angebotNr||'';
+    const reminderDate=val(prefix+'RemDate')||extracted.reminderDate||datum||'';
+    const reminderTime=val(prefix+'RemTime')||extracted.reminderTime||uhrzeit||'';
+    const uebersicht=buildCustomerOverview({firma,kontakt,tel,mail,adresse,plz,ort,datum,uhrzeit,interesse,produkt,nextStep});
+    list.unshift({
+      id:uid(),
+      firma, kontakt, tel, mail, status:val(prefix+'Status'),
+      ort, adresse, plz,
+      datum, uhrzeit,
+      interesse, produkt,
+      nextStep,
+      angebotNr,
+      reminderDate, reminderTime,
+      uebersicht,
+      bericht: rawBericht || rawNotiz || '',
+      notiz:rawNotiz,
+      pdfs,
+      erstellt:new Date().toISOString()
+    });
+    save();
+    renderCRM(screenId,title,list);
+    renderDashboard();
+    if(reminderDate){
+      openCalendarForRecord({
+        titel:`${singular}: ${firma}`,
+        firma, kontakt, ort,
+        datum: reminderDate,
+        uhrzeit: reminderTime,
+        nextStep: nextStep || `Follow-up ${singular.toLowerCase()}`,
+        angebotNr,
+        notiz: rawNotiz
+      });
+    }
+  };
+  renderCRMList(prefix,list);
+}
+function renderCRMList(prefix,list){
+  const q=strip(val(prefix+'Search'));
+  const container=document.getElementById(prefix+'List');
+  const filtered=list.filter(x=>{
+    const blob=[x.firma,x.kontakt,x.tel,x.mail,x.status,x.ort,x.adresse,x.plz,x.datum,x.uhrzeit,x.interesse,x.produkt,x.nextStep,x.angebotNr,x.bericht,x.notiz,(x.pdfs||[]).map(p=>p.name+' '+(p.text||'')).join(' ')].join(' ');
+    return blob.toLowerCase().includes(q);
+  });
+  if(!filtered.length){container.innerHTML='<div class="empty">Keine Einträge gefunden.</div>';return;}
+  container.innerHTML=filtered.map(x=>`
+    <div class="item">
+      <div class="section-head" style="margin-bottom:10px"><div><h4>${esc(x.firma)}</h4><div class="meta"><span>${esc(x.kontakt||'')}</span><span>${esc(x.tel||'')}</span><span>${esc(x.mail||'')}</span></div></div><div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div></div>
+      ${x.uebersicht?`<div class="block" style="margin-top:8px;white-space:pre-wrap">${esc(x.uebersicht)}</div>`:''}
+      ${(x.datum||x.uhrzeit)?`<div class="small" style="margin-top:8px">Termin: ${esc(x.datum||'')}${x.uhrzeit?` · ${esc(x.uhrzeit)}`:''}</div>`:''}
+      ${(x.interesse||x.produkt)?`<div class="small" style="margin-top:4px">Interesse: ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
+      ${x.nextStep?`<div class="small" style="margin-top:4px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
+      ${x.angebotNr?`<div class="small" style="margin-top:4px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
+      ${(x.reminderDate||x.reminderTime)?`<div class="small" style="margin-top:4px"><strong>Erinnerung:</strong> ${esc(x.reminderDate||'')}${x.reminderTime?` · ${esc(x.reminderTime)}`:''}</div>`:''}
+      ${x.notiz?`<div style="margin-top:8px;white-space:pre-wrap">${esc(x.notiz)}</div>`:''}
+      ${renderPdfList(x.pdfs||[])}
+      <div class="row auto" style="margin-top:10px">
+        ${(x.reminderDate || x.datum) ? `<button class="btn-success" onclick="openCalendarForRecordById('${prefix}','${x.id}')">Im Kalender</button>`:''}
+        ${prefix==='anfrage' ? `<button class="btn-secondary" onclick="convertAnfrageToLead('${x.id}')">Als Lead übernehmen</button>` : ''}
+        <button class="btn-danger" onclick="deleteCRM('${prefix}','${x.id}')">Löschen</button>
+      </div>
+    </div>`).join('');
+}
+function convertAnfrageToLead(id){
+  const i=state.anfragen.findIndex(x=>x.id===id);
+  if(i<0) return;
+  const anfrage=state.anfragen[i];
+  const lead={
+    id:uid(),
+    firma:anfrage.firma||'',
+    kontakt:anfrage.kontakt||'',
+    tel:anfrage.tel||'',
+    mail:anfrage.mail||'',
+    status:['Neu','Kontaktiert','Angebot','Nachfassen'].includes(anfrage.status) ? anfrage.status : 'Neu',
+    ort:anfrage.ort||'',
+    adresse:anfrage.adresse||'',
+    plz:anfrage.plz||'',
+    datum:anfrage.datum||'',
+    uhrzeit:anfrage.uhrzeit||'',
+    interesse:anfrage.interesse||'',
+    produkt:anfrage.produkt||'',
+    nextStep:anfrage.nextStep||'',
+    angebotNr:anfrage.angebotNr||'',
+    bericht:anfrage.bericht||'',
+    reminderDate:anfrage.reminderDate||anfrage.datum||'',
+    reminderTime:anfrage.reminderTime||anfrage.uhrzeit||'',
+    uebersicht:anfrage.uebersicht||buildCustomerOverview(anfrage),
+    notiz:((anfrage.notiz||'') ? 'Aus Anfrage generiert\n\n'+anfrage.notiz : 'Aus Anfrage generiert'),
+    pdfs:Array.isArray(anfrage.pdfs) ? JSON.parse(JSON.stringify(anfrage.pdfs)) : [],
+    erstellt:new Date().toISOString()
+  };
+  state.leads.unshift(lead);
+  state.anfragen.splice(i,1);
+  save();
+  renderAll();
+  showScreen('leads');
+  if(lead.reminderDate){
+    openCalendarForRecord({
+      titel:`Lead: ${lead.firma}`,
+      firma: lead.firma,
+      kontakt: lead.kontakt,
+      ort: lead.ort,
+      datum: lead.reminderDate,
+      uhrzeit: lead.reminderTime,
+      nextStep: lead.nextStep,
+      angebotNr: lead.angebotNr,
+      notiz: lead.notiz
     });
   }
-  doc.save(`spesen-${sel.key}.pdf`);
+}
+function deleteCRM(prefix,id){
+  const list=prefix==='lead'?state.leads:state.anfragen;
+  const i=list.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Eintrag löschen?')) return; list.splice(i,1); save(); renderAll();
 }
 
-render();
 
+
+function normalizeLines(text){
+  return (text||'').replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
+}
+function isOwnCompanyLine(line){
+  return /as\s*technical\s*solution/i.test(line) || /sendenhorst/i.test(line) || /industrieweg\s*13[-–]?15/i.test(line) || /www\.as-technical\.de/i.test(line);
+}
+function cleanExtractValue(v){
+  return String(v||'').replace(/\s+/g,' ').replace(/[|;]/g,' ').trim();
+}
+function normalizePhone(v){
+  return cleanExtractValue(v).replace(/[^\d+]/g,' ').replace(/\s+/g,' ').trim();
+}
+function parseGermanDate(value){
+  const v = cleanExtractValue(value);
+  if(!v) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const m = v.match(/\b(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})\b/);
+  if(!m) return '';
+  let year = m[3];
+  if(year.length===2) year = '20'+year;
+  return `${year.padStart(4,'0')}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+}
+function parseTimeValue(value){
+  const m = String(value||'').match(/\b(\d{1,2})[:.](\d{2})\b/);
+  if(!m) return '';
+  return `${String(m[1]).padStart(2,'0')}:${m[2]}`;
+}
+function extractLabelValue(text, labels){
+  const lines = normalizeLines(text);
+  for(const line of lines){
+    for(const label of labels){
+      const re = new RegExp('^'+label+'\\s*:?\\s*(.+)$','i');
+      const m = line.match(re);
+      if(m) return cleanExtractValue(m[1]);
+    }
+  }
+  const flat = text.replace(/\n/g,' ');
+  for(const label of labels){
+    const re = new RegExp(label+'\\s*:?\\s*([^\\[]+?)(?=(?:\\s+[A-ZÄÖÜa-zäöüß][\\w./() -]{1,25}:)|$)','i');
+    const m = flat.match(re);
+    if(m) return cleanExtractValue(m[1]);
+  }
+  return '';
+}
+function pickFirstExternalCompany(lines){
+  for(const line of lines){
+    if(isOwnCompanyLine(line)) continue;
+    if(/^(sehr geehrte|hallo|mail|telefon|tel\.?|e-?mail|mobil|ansprechpartner|kontakt|datum|uhrzeit|betreff|kn\.nr|kom\.nr|sn\s*nr|servicetechniker)/i.test(line)) continue;
+    if(line.length<3) continue;
+    if(/gmbh|kg|ag|ug|mbh|fleischerei|landschlachterei|schlachterei|metzgerei|bäckerei|baeckerei|bistro|hotel|gbr|e\.k\.|\bek\b|ohg|restaurant|imbiss/i.test(line)) return line;
+  }
+  return '';
+}
+function extractInterestBlock(text){
+  const compact = text.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
+  const match = compact.match(/\[X\]\s*([A-ZÄÖÜ0-9]+)\s*\(([^)]+)\)\s*([^[]*?)(?=(?:\[\s*[X ]\s*\])|Angebot\s+zusenden|Rechnung\s+zusenden|Ort:|Datum:|$)/i);
+  if(!match) return {interesse:'', produkt:'', naechsterSchritt:''};
+  return {
+    interesse: cleanExtractValue(match[1]),
+    produkt: cleanExtractValue(match[2]),
+    naechsterSchritt: cleanExtractValue(match[3]).replace(/^[-–:]+/,'').trim()
+  };
+}
+function extractCustomerData(text){
+  const lines=normalizeLines(text).filter(line=>!isOwnCompanyLine(line));
+  const cleanText=lines.join('\n');
+  const mail=(cleanText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig)||[]).find(m=>!/as-technical\.de/i.test(m))||'';
+  const tel=normalizePhone(extractLabelValue(cleanText,['Telefon','Tel']) || ((cleanText.match(/(?:\+49|0)[\d\s\/()-]{6,}/g)||[]).map(s=>s.replace(/\s+/g,' ').trim()).find(Boolean)) || '');
+  let firma=cleanExtractValue(extractLabelValue(cleanText,['Kunde','Firma'])) || pickFirstExternalCompany(lines);
+  let kontakt=cleanExtractValue(extractLabelValue(cleanText,['Name','Ansprechpartner','Kontakt']));
+  if(!kontakt){
+    const mr=cleanText.match(/(?:herr|frau)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){0,2})/i);
+    if(mr) kontakt=mr[1].trim();
+  }
+  let adresse=cleanExtractValue(extractLabelValue(cleanText,['Strasse','Straße','Adresse']));
+  let plz=''; let ort='';
+  const ortVal = cleanExtractValue(extractLabelValue(cleanText,['PLZ\/Ort','Ort']));
+  const ortMatch = ortVal.match(/(\d{5})\s+(.+)/);
+  if(ortMatch){
+    plz=ortMatch[1];
+    ort=ortMatch[2].trim();
+  } else {
+    ort=ortVal;
+  }
+  if(!plz || !ort){
+    for(let i=0;i<lines.length;i++){
+      const l=lines[i];
+      const m=l.match(/\b(\d{5})\s+([A-Za-zÄÖÜäöüß].+)$/);
+      if(m){
+        plz = plz || m[1];
+        ort = ort || m[2].trim();
+        if(!adresse && i>0 && /\d+/.test(lines[i-1]) && !isOwnCompanyLine(lines[i-1]) && !/telefon|tel|mail|e-?mail/i.test(lines[i-1])) adresse = lines[i-1];
+        break;
+      }
+    }
+  }
+  if(adresse && /telefon|tel|mail|e-?mail/i.test(adresse)) adresse='';
+  if(!firma && kontakt){
+    const idx=lines.findIndex(l=>l.includes(kontakt));
+    if(idx>0) firma=pickFirstExternalCompany(lines.slice(0,idx));
+  }
+  const datum=parseGermanDate(extractLabelValue(cleanText,['Datum']));
+  const uhrzeit=parseTimeValue(extractLabelValue(cleanText,['Uhrzeit','Zeit']));
+  const servicetechniker=cleanExtractValue(extractLabelValue(cleanText,['Servicetechniker']));
+  const angebotNr=cleanExtractValue(extractLabelValue(cleanText,['Angebotsnummer','Angebot Nr','Angebot-Nr','Angebotnr']));
+  const interest = extractInterestBlock(cleanText);
+  let nextStep = interest.naechsterSchritt || cleanExtractValue(extractLabelValue(cleanText,['Nächster Schritt','Naechster Schritt']));
+  if(!nextStep){
+    const free = cleanText.match(/(?:anrufen|rückrufen|rueckrufen|nachfassen|termin|vorstellen|demo|angebot zusenden)[^.\n]*/i);
+    if(free) nextStep = cleanExtractValue(free[0]);
+  }
+  return {
+    firma,kontakt,tel,mail,ort,adresse,plz,datum,uhrzeit,servicetechniker,angebotNr,
+    interesse: interest.interesse || '',
+    produkt: interest.produkt || '',
+    naechsterSchritt: nextStep || '',
+    reminderDate: datum || '',
+    reminderTime: uhrzeit || ''
+  };
+}
+function buildCustomerOverview(data){
+  const out=[];
+  if(data.firma) out.push('Kunde: '+data.firma);
+  if(data.kontakt) out.push('Ansprechpartner: '+data.kontakt);
+  if(data.tel) out.push('Telefon: '+data.tel);
+  if(data.mail) out.push('E-Mail: '+data.mail);
+  const addr=[data.adresse, [data.plz,data.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  if(addr) out.push('Adresse: '+addr);
+  if(data.datum || data.uhrzeit) out.push('Termin: '+[data.datum,data.uhrzeit].filter(Boolean).join(' · '));
+  if(data.interesse || data.produkt) out.push('Interesse: '+[data.interesse,data.produkt].filter(Boolean).join(' · '));
+  if(data.nextStep) out.push('Nächster Schritt: '+data.nextStep);
+  if(data.angebotNr) out.push('Angebotsnummer: '+data.angebotNr);
+  return out.join('\n');
+}
+function applyParsedDataToForm(prefix, parsedPdfs, overwrite=false){
+  const note = val(prefix+'Notiz');
+  let pdfs = parsedPdfs;
+  if(!pdfs){
+    try{ pdfs = JSON.parse(document.getElementById(prefix+'Pdf').dataset.parsed || '[]'); }catch(e){ pdfs=[]; }
+  }
+  const merged = [note, ...(pdfs||[]).map(p=>p.text||'')].filter(Boolean).join('\n');
+  if(!merged.trim()) return;
+  const data = extractCustomerData(merged);
+  setFieldValue(prefix+'Firma', data.firma, overwrite);
+  setFieldValue(prefix+'Kontakt', data.kontakt, overwrite);
+  setFieldValue(prefix+'Tel', data.tel, overwrite);
+  setFieldValue(prefix+'Mail', data.mail ? data.mail.toLowerCase() : '', overwrite);
+  setFieldValue(prefix+'Adresse', data.adresse, overwrite);
+  setFieldValue(prefix+'Plz', data.plz, overwrite);
+  setFieldValue(prefix+'Ort', data.ort, overwrite);
+  setFieldValue(prefix+'Datum', data.datum, overwrite);
+  setFieldValue(prefix+'Uhrzeit', data.uhrzeit, overwrite);
+  setFieldValue(prefix+'Interesse', data.interesse, overwrite);
+  setFieldValue(prefix+'Produkt', data.produkt, overwrite);
+  setFieldValue(prefix+'Next', data.naechsterSchritt, overwrite);
+  setFieldValue(prefix+'AngebotNr', data.angebotNr, overwrite);
+  setFieldValue(prefix+'RemDate', data.reminderDate || data.datum, overwrite);
+  setFieldValue(prefix+'RemTime', data.reminderTime || data.uhrzeit, overwrite);
+  if(overwrite || !val(prefix+'Bericht')){
+    setFieldValue(prefix+'Bericht', note, overwrite);
+  }
+  document.getElementById(prefix+'Overview').value = buildCustomerOverview({
+    firma: val(prefix+'Firma'),
+    kontakt: val(prefix+'Kontakt'),
+    tel: val(prefix+'Tel'),
+    mail: val(prefix+'Mail'),
+    adresse: val(prefix+'Adresse'),
+    plz: val(prefix+'Plz'),
+    ort: val(prefix+'Ort'),
+    datum: val(prefix+'Datum'),
+    uhrzeit: val(prefix+'Uhrzeit'),
+    interesse: val(prefix+'Interesse'),
+    produkt: val(prefix+'Produkt'),
+    nextStep: val(prefix+'Next'),
+    angebotNr: val(prefix+'AngebotNr')
+  });
+}
+function setFieldValue(id, value, overwrite=false){
+  const el = document.getElementById(id);
+  if(!el || !value) return;
+  if(overwrite || !el.value) el.value = value;
+}
+
+function openCalendarForRecord(rec){
+  state.kalenderFocus = rec || null;
+  if(rec && rec.datum) state.kalenderMonth = String(rec.datum).slice(0,7);
+  state.kalenderEditId = null;
+  save();
+  showScreen('kalender');
+  renderKalender();
+}
+function openCalendarForRecordById(prefix,id){
+  const list = prefix==='lead' ? state.leads : state.anfragen;
+  const rec = list.find(x=>x.id===id);
+  if(!rec) return;
+  openCalendarForRecord({
+    typ: prefix==='lead' ? 'Lead' : 'Anfrage',
+    source: prefix==='lead' ? 'lead' : 'anfrage',
+    sourceId: rec.id,
+    titel: `${prefix==='lead'?'Lead':'Anfrage'}: ${rec.firma||''}`.trim(),
+    firma: rec.firma || '',
+    kontakt: rec.kontakt || '',
+    ort: rec.ort || '',
+    datum: rec.reminderDate || rec.datum || '',
+    uhrzeit: rec.reminderTime || rec.uhrzeit || '',
+    endzeit: '',
+    nextStep: rec.nextStep || '',
+    angebotNr: rec.angebotNr || '',
+    notiz: rec.notiz || ''
+  });
+}
+function prevKalenderMonth(){
+  const d = getKalenderMonthDate();
+  d.setMonth(d.getMonth()-1);
+  state.kalenderMonth = d.toISOString().slice(0,7);
+  save();
+  renderKalender();
+}
+function nextKalenderMonth(){
+  const d = getKalenderMonthDate();
+  d.setMonth(d.getMonth()+1);
+  state.kalenderMonth = d.toISOString().slice(0,7);
+  save();
+  renderKalender();
+}
+function getKalenderMonthDate(){
+  const base = state.kalenderMonth || new Date().toISOString().slice(0,7);
+  const [y,m] = base.split('-').map(Number);
+  return new Date(y, (m||1)-1, 1);
+}
+function monthTitleFromState(){
+  const d = getKalenderMonthDate();
+  return d.toLocaleDateString('de-DE',{month:'long', year:'numeric'});
+}
+function setKalenderFormFromRecord(rec, keepEdit=false){
+  if(!rec) return;
+  setFieldValue('calTitel', rec.titel || rec.firma || '', true);
+  setFieldValue('calFirma', rec.firma || '', true);
+  setFieldValue('calKontakt', rec.kontakt || '', true);
+  setFieldValue('calOrt', rec.ort || '', true);
+  setFieldValue('calDatum', rec.datum || '', true);
+  setFieldValue('calUhrzeit', rec.uhrzeit || '', true);
+  setFieldValue('calEndzeit', rec.endzeit || '', true);
+  setFieldValue('calAngebotNr', rec.angebotNr || '', true);
+  setFieldValue('calNotiz', rec.notiz || rec.nextStep || '', true);
+  const typEl = document.getElementById('calTyp');
+  if(typEl) typEl.value = rec.typ || 'Termin';
+  if(!keepEdit) state.kalenderEditId = rec.source==='termin' ? rec.id : null;
+}
+function saveKalenderTermin(){
+  const titel = val('calTitel').trim();
+  const datum = val('calDatum');
+  if(!titel || !datum) return alert('Titel und Datum fehlen');
+  const termin = {
+    id: state.kalenderEditId || uid(),
+    source:'termin',
+    typ: val('calTyp') || 'Termin',
+    titel,
+    firma: val('calFirma').trim(),
+    kontakt: val('calKontakt').trim(),
+    ort: val('calOrt').trim(),
+    datum,
+    uhrzeit: val('calUhrzeit'),
+    endzeit: val('calEndzeit'),
+    angebotNr: val('calAngebotNr').trim(),
+    notiz: val('calNotiz').trim(),
+    color:'blue'
+  };
+  const i = state.termine.findIndex(x=>x.id===termin.id);
+  if(i>=0) state.termine[i] = termin; else state.termine.unshift(termin);
+  state.kalenderFocus = termin;
+  state.kalenderEditId = null;
+  state.kalenderMonth = String(datum).slice(0,7);
+  save();
+  renderKalender();
+  renderDashboard();
+}
+function editKalenderTermin(id){
+  const termin = state.termine.find(x=>x.id===id);
+  if(!termin) return;
+  state.kalenderEditId = id;
+  state.kalenderFocus = termin;
+  if(termin.datum) state.kalenderMonth = String(termin.datum).slice(0,7);
+  save();
+  renderKalender();
+}
+function deleteKalenderTermin(id){
+  const i = state.termine.findIndex(x=>x.id===id);
+  if(i<0) return;
+  if(!confirm('Termin löschen?')) return;
+  state.termine.splice(i,1);
+  if(state.kalenderEditId===id) state.kalenderEditId = null;
+  if(state.kalenderFocus && state.kalenderFocus.id===id && state.kalenderFocus.source==='termin') state.kalenderFocus = null;
+  save();
+  renderKalender();
+  renderDashboard();
+}
+function clearKalenderForm(){
+  ['calTitel','calFirma','calKontakt','calOrt','calDatum','calUhrzeit','calEndzeit','calAngebotNr','calNotiz'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const typEl = document.getElementById('calTyp');
+  if(typEl) typEl.value = 'Termin';
+  state.kalenderEditId = null;
+  save();
+}
+function buildCalendarGrid(items){
+  const monthDate = getKalenderMonthDate();
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const first = new Date(year, month, 1);
+  const startWeekday = (first.getDay()+6)%7;
+  const last = new Date(year, month+1, 0).getDate();
+  const counts = {};
+  items.forEach(item=>{ counts[item.datum] = (counts[item.datum]||0)+1; });
+  const cells = [];
+  for(let i=0;i<startWeekday;i++) cells.push('<div style="min-height:92px;border:1px solid var(--line);border-radius:14px;opacity:.35"></div>');
+  const today = new Date().toISOString().slice(0,10);
+  for(let day=1; day<=last; day++){
+    const date = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const count = counts[date]||0;
+    const isToday = date===today;
+    cells.push(`<button class="btn-ghost" style="min-height:92px;text-align:left;padding:10px;border-radius:14px;border:1px solid ${isToday?'#3d7bd9':'var(--line)'};background:${count?'#10233a':'transparent'}" onclick="setKalenderDate('${date}')"><div style="display:flex;justify-content:space-between;align-items:flex-start"><strong>${day}</strong>${count?'<span class="badge b-blue">'+count+'</span>':''}</div><div class="small" style="margin-top:10px">${count?count+' Termin(e)':'frei'}</div></button>`);
+  }
+  return `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px">
+    ${['Mo','Di','Mi','Do','Fr','Sa','So'].map(d=>`<div class="small" style="font-weight:800;text-align:center;padding:4px 0">${d}</div>`).join('')}
+    ${cells.join('')}
+  </div>`;
+}
+function setKalenderDate(date){
+  const el = document.getElementById('calDatum');
+  if(el) el.value = date;
+}
+
+function collectCalendarItems(){
+  const items = [];
+  state.termine.forEach(x=>{
+    if(!x.datum) return;
+    items.push({
+      typ:x.typ || 'Termin',
+      color:'blue',
+      id:x.id,
+      source:'termin',
+      sourceId:x.id,
+      titel:x.titel || x.firma || 'Termin',
+      firma:x.firma || '',
+      kontakt:x.kontakt || '',
+      ort:x.ort || '',
+      datum:x.datum,
+      uhrzeit:x.uhrzeit || '',
+      endzeit:x.endzeit || '',
+      nextStep:'',
+      angebotNr:x.angebotNr || '',
+      notiz:x.notiz || ''
+    });
+  });
+  state.leads.forEach(x=>{
+    const datum = x.reminderDate || x.datum || '';
+    if(!datum) return;
+    items.push({
+      typ:'Lead',
+      color:'green',
+      id:x.id,
+      source:'lead',
+      sourceId:x.id,
+      titel:x.firma || 'Lead',
+      firma:x.firma || '',
+      kontakt:x.kontakt || '',
+      ort:x.ort || '',
+      datum,
+      uhrzeit:x.reminderTime || x.uhrzeit || '',
+      endzeit:'',
+      nextStep:x.nextStep || '',
+      angebotNr:x.angebotNr || '',
+      notiz:x.notiz || ''
+    });
+  });
+  state.anfragen.forEach(x=>{
+    const datum = x.reminderDate || x.datum || '';
+    if(!datum) return;
+    items.push({
+      typ:'Anfrage',
+      color:'orange',
+      id:x.id,
+      source:'anfrage',
+      sourceId:x.id,
+      titel:x.firma || 'Anfrage',
+      firma:x.firma || '',
+      kontakt:x.kontakt || '',
+      ort:x.ort || '',
+      datum,
+      uhrzeit:x.reminderTime || x.uhrzeit || '',
+      endzeit:'',
+      nextStep:x.nextStep || '',
+      angebotNr:x.angebotNr || '',
+      notiz:x.notiz || ''
+    });
+  });
+  state.wochenberichte.forEach(x=>{
+    if(!x.datum) return;
+    items.push({
+      typ:'Bericht',
+      color:'violet',
+      id:x.id,
+      source:'wochenbericht',
+      sourceId:x.id,
+      titel:x.firma || 'Wochenbericht',
+      firma:x.firma || '',
+      kontakt:x.kontakt || '',
+      ort:x.ort || '',
+      datum:x.datum,
+      uhrzeit:'',
+      endzeit:'',
+      nextStep:x.next || '',
+      angebotNr:'',
+      notiz:x.text || ''
+    });
+  });
+  items.sort((a,b)=>{
+    const ka = (a.datum||'')+' '+(a.uhrzeit||'99:99');
+    const kb = (b.datum||'')+' '+(b.uhrzeit||'99:99');
+    return ka.localeCompare(kb);
+  });
+  return items;
+}
+function renderKalender(){
+  const el=document.getElementById('kalender');
+  const allItems = collectCalendarItems();
+  const monthKeyView = state.kalenderMonth || new Date().toISOString().slice(0,7);
+  const monthItems = allItems.filter(x=>String(x.datum||'').startsWith(monthKeyView));
+  const focus = state.kalenderFocus;
+  const grouped = {};
+  monthItems.forEach(x=>{
+    if(!grouped[x.datum]) grouped[x.datum]=[];
+    grouped[x.datum].push(x);
+  });
+  const dates = Object.keys(grouped).sort();
+  const focusPrefill = focus || {};
+  el.innerHTML = `
+    <div class="section-head"><div><h2>Kalender</h2><p>Vollwertiger interner Kalender mit eigenen Terminen, Leads, Anfragen und Wochenberichten.</p></div></div>
+    <div class="split">
+      <div>
+        <div class="card">
+          <div class="section-head"><div><h2>${state.kalenderEditId ? 'Termin bearbeiten' : 'Termin eintragen'}</h2><p>Alles bleibt direkt in der App.</p></div></div>
+          <div class="row">
+            <div><label>Titel</label><input id="calTitel" value="${esc(focusPrefill.titel||focusPrefill.firma||'')}" /></div>
+            <div><label>Typ</label><select id="calTyp">
+              ${['Termin','Besuch','Nachfassen','Telefonat','Aufgabe'].map(t=>`<option ${((focusPrefill.typ||'Termin')===t)?'selected':''}>${t}</option>`).join('')}
+            </select></div>
+          </div>
+          <div class="row">
+            <div><label>Firma</label><input id="calFirma" value="${esc(focusPrefill.firma||'')}" /></div>
+            <div><label>Ansprechpartner</label><input id="calKontakt" value="${esc(focusPrefill.kontakt||'')}" /></div>
+          </div>
+          <div class="row">
+            <div><label>Ort</label><input id="calOrt" value="${esc(focusPrefill.ort||'')}" /></div>
+            <div><label>Angebotsnummer</label><input id="calAngebotNr" value="${esc(focusPrefill.angebotNr||'')}" /></div>
+          </div>
+          <div class="row row-tight">
+            <div><label>Datum</label><input id="calDatum" type="date" value="${esc(focusPrefill.datum||'')}" /></div>
+            <div><label>Start</label><input id="calUhrzeit" type="time" value="${esc(focusPrefill.uhrzeit||'')}" /></div>
+            <div><label>Ende</label><input id="calEndzeit" type="time" value="${esc(focusPrefill.endzeit||'')}" /></div>
+          </div>
+          <div><label>Notiz</label><textarea id="calNotiz">${esc(focusPrefill.notiz||focusPrefill.nextStep||'')}</textarea></div>
+          <div class="row auto">
+            <button class="btn-primary" id="calSave">${state.kalenderEditId ? 'Termin speichern' : 'Termin anlegen'}</button>
+            <button class="btn-secondary" id="calClear">Formular leeren</button>
+            ${focus ? `<button class="btn-ghost" id="calTakeFocus">Aus gewähltem Eintrag übernehmen</button>` : ''}
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div><h2>Monatsansicht</h2><p>${monthTitleFromState()}</p></div><div class="row auto" style="justify-content:flex-end"><button class="btn-ghost" id="calPrevMonth">←</button><button class="btn-ghost" id="calNextMonth">→</button></div></div>
+          ${buildCalendarGrid(monthItems)}
+        </div>
+      </div>
+      <div>
+        ${focus ? `<div class="card" style="margin-bottom:14px"><div class="section-head"><div><h2>Ausgewählter Eintrag</h2><p>Für Terminübernahme oder Detailansicht.</p></div></div><div class="item"><h4>${esc(focus.titel||focus.firma||'Termin')}</h4><div class="meta"><span>${esc(focus.datum||'')}</span><span>${esc(focus.uhrzeit||'ohne Uhrzeit')}</span><span>${esc(focus.ort||'')}</span><span>${esc(focus.kontakt||'')}</span></div>${focus.nextStep?`<div class="small"><strong>Nächster Schritt:</strong> ${esc(focus.nextStep)}</div>`:''}${focus.angebotNr?`<div class="small" style="margin-top:4px"><strong>Angebotsnummer:</strong> ${esc(focus.angebotNr)}</div>`:''}${focus.notiz?`<div style="margin-top:8px;white-space:pre-wrap">${esc(focus.notiz)}</div>`:''}<div class="row auto" style="margin-top:10px"><button class="btn-danger" onclick="clearCalendarFocus()">Auswahl schließen</button></div></div></div>` : ''}
+        <div class="card">
+          <div class="section-head"><div><h2>Einträge im Monat</h2><p>${monthItems.length} Termin(e) in ${monthTitleFromState()}</p></div></div>
+          ${dates.length ? dates.map(date=>`
+            <div style="margin-bottom:16px">
+              <div class="small" style="font-weight:800;margin-bottom:8px">${esc(date)}</div>
+              <div class="list">
+                ${grouped[date].map(x=>`
+                  <div class="item">
+                    <div class="section-head" style="margin-bottom:8px">
+                      <div>
+                        <h4>${esc(x.titel)}</h4>
+                        <div class="meta">
+                          <span>${esc(x.uhrzeit||'ohne Uhrzeit')}</span>
+                          <span>${esc(x.ort||'')}</span>
+                          <span>${esc(x.kontakt||'')}</span>
+                        </div>
+                      </div>
+                      <div>${badge(x.typ, x.color)}</div>
+                    </div>
+                    ${x.angebotNr?`<div class="small"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
+                    ${x.notiz?`<div style="margin-top:8px;white-space:pre-wrap">${esc(x.notiz)}</div>`:''}
+                    <div class="row auto" style="margin-top:10px">
+                      <button class="btn-success" onclick="openCalendarForGeneric('${jsQuote(x.titel)}','${jsQuote(x.datum)}','${jsQuote(x.uhrzeit)}','${jsQuote(x.ort)}','${jsQuote(x.kontakt)}','','${jsQuote(x.angebotNr)}','${jsQuote(x.notiz)}')">Details</button>
+                      ${x.source==='termin' ? `<button class="btn-secondary" onclick="editKalenderTermin('${x.id}')">Bearbeiten</button><button class="btn-danger" onclick="deleteKalenderTermin('${x.id}')">Löschen</button>` : x.source==='lead' ? `<button class="btn-secondary" onclick="showScreen('leads')">Zum Lead</button>` : x.source==='anfrage' ? `<button class="btn-secondary" onclick="showScreen('anfragen')">Zur Anfrage</button>` : `<button class="btn-secondary" onclick="showScreen('wochenbericht')">Zum Bericht</button>`}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('') : '<div class="empty">Keine Einträge in diesem Monat.</div>'}
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('calSave').onclick = saveKalenderTermin;
+  document.getElementById('calClear').onclick = ()=>{ clearKalenderForm(); renderKalender(); };
+  document.getElementById('calPrevMonth').onclick = prevKalenderMonth;
+  document.getElementById('calNextMonth').onclick = nextKalenderMonth;
+  if(document.getElementById('calTakeFocus')) document.getElementById('calTakeFocus').onclick = ()=>setKalenderFormFromRecord(state.kalenderFocus, true);
+}
+function openCalendarForGeneric(titel, datum, uhrzeit, ort, kontakt, nextStep, angebotNr, notiz){
+  openCalendarForRecord({titel, datum, uhrzeit, ort, kontakt, nextStep, angebotNr, notiz});
+}
+function clearCalendarFocus(){
+  state.kalenderFocus = null;
+  save();
+  renderKalender();
+}
+
+function renderMaschinen(){
+
+  const el=document.getElementById('maschinen');
+  const options=state.hersteller.map(h=>`<option>${esc(h)}</option>`).join('');
+  el.innerHTML=`
+    <div class="section-head"><div><h2>Maschinen</h2><p>Hersteller, Preislisten und Unterlagen mit PDF-Suche.</p></div></div>
+    <div class="split">
+      <div>
+        <div class="card">
+          <div class="row auto"><div style="flex:1 1 240px"><label>Hersteller neu anlegen</label><input id="herstellerNeu" placeholder="z. B. GRAEF" /></div><button class="btn-secondary" id="herstellerSave">Hersteller speichern</button></div>
+          <div class="small" style="margin-top:8px">Vorhanden: ${state.hersteller.map(esc).join(', ')||'-'}</div>
+        </div>
+        <div class="card">
+          <div class="row">
+            <div><label>Hersteller</label><select id="mHersteller">${options}</select></div>
+            <div><label>Titel</label><input id="mTitel" placeholder="z. B. Preisliste Masterline" /></div>
+          </div>
+          <div class="row">
+            <div><label>Dokumentart</label><select id="mTyp"><option>Maschine</option><option>Preisliste</option><option>Anleitung</option><option>Unterlage</option></select></div>
+            <div><label>Preis / Hinweis</label><input id="mPreis" placeholder="z. B. 12.500 €" /></div>
+          </div>
+          <div><label>PDF-Datei</label><input id="mPdf" type="file" accept="application/pdf" multiple /></div>
+          <div class="row auto" style="margin-top:10px"><button class="btn-primary" id="mSave">Dokument speichern</button></div>
+        </div>
+      </div>
+      <div>
+        <div class="toolbar"><input id="mSearch" placeholder="Hersteller, Titel oder PDF-Inhalt suchen" /></div>
+        <div id="mList" class="list"></div>
+      </div>
+    </div>`;
+  document.getElementById('herstellerSave').onclick=()=>{const h=val('herstellerNeu').trim(); if(!h) return; if(!state.hersteller.includes(h)) state.hersteller.push(h); save(); renderMaschinen();};
+  document.getElementById('mSave').onclick=async()=>{
+    const hersteller=val('mHersteller'); const titel=val('mTitel'); if(!hersteller||!titel) return alert('Hersteller und Titel fehlen');
+    const pdfs=await readPdfFiles(document.getElementById('mPdf').files);
+    state.maschinenDocs.unshift({id:uid(),hersteller,titel,typ:val('mTyp'),preis:val('mPreis'),pdfs,erstellt:new Date().toISOString()});
+    save(); renderMaschinen(); renderDashboard();
+  };
+  document.getElementById('mSearch').oninput=renderMaschinenList;
+  renderMaschinenList();
+}
+function renderMaschinenList(){
+  const q=strip(val('mSearch'));
+  const filtered=state.maschinenDocs.filter(x=>[x.hersteller,x.titel,x.typ,x.preis,(x.pdfs||[]).map(p=>p.name+' '+(p.text||'')).join(' ')].join(' ').toLowerCase().includes(q));
+  const el=document.getElementById('mList');
+  if(!filtered.length){el.innerHTML='<div class="empty">Keine Maschinenunterlagen gefunden.</div>';return;}
+  el.innerHTML=filtered.map(x=>`<div class="item"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel)}</h4><div class="meta"><span>${esc(x.hersteller)}</span><span>${esc(x.typ)}</span><span>${esc(x.preis||'')}</span></div></div><div>${badge(x.hersteller,'violet')}</div></div>${renderPdfList(x.pdfs||[])}<div class="row auto" style="margin-top:10px"><button class="btn-danger" onclick="deleteMachine('${x.id}')">Löschen</button></div></div>`).join('');
+}
+function deleteMachine(id){const i=state.maschinenDocs.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Dokument löschen?')) return; state.maschinenDocs.splice(i,1); save(); renderMaschinen(); renderDashboard();}
+
+function renderVideos(){
+  const el=document.getElementById('videos');
+  el.innerHTML=`
+    <div class="section-head"><div><h2>Videos</h2><p>Video-Links zu Firmen speichern, benennen und suchen.</p></div></div>
+    <div class="split">
+      <div class="card">
+        <div class="row"><div><label>Firma</label><input id="videoFirma" /></div><div><label>Titel</label><input id="videoTitel" placeholder="z. B. Graef Demo Masterline" /></div></div>
+        <div><label>Video-Link</label><input id="videoUrl" placeholder="https://..." /></div>
+        <div><label>Beschreibung</label><textarea id="videoNotiz"></textarea></div>
+        <div class="row auto"><button class="btn-primary" id="videoSave">Video speichern</button></div>
+      </div>
+      <div>
+        <div class="toolbar"><input id="videoSearch" placeholder="Firma, Titel oder Link suchen" /></div>
+        <div id="videoList" class="list"></div>
+      </div>
+    </div>`;
+  document.getElementById('videoSave').onclick=()=>{
+    const firma=val('videoFirma').trim(); const titel=val('videoTitel').trim(); const url=val('videoUrl').trim();
+    if(!firma||!titel||!url) return alert('Firma, Titel und Link fehlen');
+    state.videos.unshift({id:uid(),firma,titel,url,beschreibung:val('videoNotiz')});
+    save(); renderVideos(); renderDashboard();
+  };
+  document.getElementById('videoSearch').oninput=renderVideoList;
+  renderVideoList();
+}
+function renderVideoList(){
+  const q=strip(val('videoSearch'));
+  const filtered=state.videos.filter(x=>[x.firma,x.titel,x.url,x.beschreibung].join(' ').toLowerCase().includes(q));
+  const el=document.getElementById('videoList');
+  if(!filtered.length){el.innerHTML='<div class="empty">Keine gespeicherten Videos.</div>';return;}
+  el.innerHTML=filtered.map(x=>`<div class="item"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel)}</h4><div class="meta"><span>${esc(x.firma)}</span></div></div><div>${badge('Video','blue')}</div></div><div><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a></div>${x.beschreibung?`<div style="margin-top:8px">${esc(x.beschreibung)}</div>`:''}<div class="row auto" style="margin-top:10px"><button class="btn-secondary" onclick="window.open('${jsQuote(x.url)}','_blank')">Öffnen</button><button class="btn-danger" onclick="deleteVideo('${x.id}')">Löschen</button></div></div>`).join('');
+}
+function deleteVideo(id){const i=state.videos.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Video löschen?')) return; state.videos.splice(i,1); save(); renderVideos(); renderDashboard();}
+function jsQuote(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
+
+function calcSpesen(hours){ if(hours>=24) return 28; if(hours>=8) return 14; return 0; }
+function hoursBetween(date,start,end){ if(!start||!end) return 0; const a=new Date(`${date}T${start}`), b=new Date(`${date}T${end}`); let ms=b-a; if(ms<0) ms += 24*3600*1000; return Math.round(ms/36e5*100)/100; }
+function renderSpesen(){
+  const el=document.getElementById('spesen');
+  const today=new Date().toISOString().slice(0,10); const months=[0,1,2].map(i=>{const d=new Date(); d.setMonth(d.getMonth()-i,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
+  const monthOptions=months.map(k=>`<option value="${k}">${monthLabel(k)}</option>`).join('');
+  el.innerHTML=`
+    <div class="section-head"><div><h2>Spesen</h2><p>Tagespauschalen mit Druck/PDF je Monat.</p></div></div>
+    <div class="split">
+      <div>
+        <div class="card">
+          <div class="row row-tight"><div><label>Datum</label><input id="sDatum" type="date" value="${today}" /></div><div><label>Typ</label><select id="sTyp"><option>Tagesspesen</option><option>Fahrt</option><option>Sonstiges</option></select></div></div>
+          <div class="row row-tight"><div><label>Startort</label><input id="sStartOrt" /></div><div><label>Zielort</label><input id="sZielOrt" /></div></div>
+          <div class="row row-tight"><div><label>Zeit Start</label><input id="sStartZeit" type="time" /></div><div><label>Zeit Ende</label><input id="sEndZeit" type="time" /></div><div><label>Stunden</label><input id="sHours" readonly /></div></div>
+          <div><label>Beschreibung</label><textarea id="sText"></textarea></div>
+          <div class="row auto" style="align-items:end"><div style="flex:1 1 180px"><label>Betrag</label><input id="sBetrag" readonly /></div><button class="btn-primary" id="sSave">Spese speichern</button></div>
+        </div>
+        <div class="card">
+          <div class="row auto" style="align-items:end"><div style="flex:1 1 240px"><label>Monat</label><select id="sMonat">${monthOptions}</select></div><div style="flex:1 1 240px"><label>Monats-PDFs</label><input id="sMonatPdf" type="file" accept="application/pdf" multiple /></div><button class="btn-secondary" id="sMonatPdfSave">PDFs zum Monat speichern</button></div>
+          <div class="row auto" style="margin-top:10px"><button class="btn-success" id="sPrintDay">Tagesansicht drucken</button><button class="btn-primary" id="sPrintMonth">Monats-PDF öffnen</button></div>
+          <div id="sMonatDocs" class="filelist" style="margin-top:10px"></div>
+        </div>
+      </div>
+      <div>
+        <div class="toolbar"><select id="sMonatFilter">${monthOptions}</select></div>
+        <div id="sList"></div>
+      </div>
+    </div>`;
+  const recalc=()=>{const h=hoursBetween(val('sDatum'),val('sStartZeit'),val('sEndZeit')); document.getElementById('sHours').value=h?String(h).replace('.',','):''; document.getElementById('sBetrag').value=euro(calcSpesen(h));};
+  ['sDatum','sStartZeit','sEndZeit'].forEach(id=>document.getElementById(id).oninput=recalc); recalc();
+  document.getElementById('sSave').onclick=()=>{
+    const datum=val('sDatum'); if(!datum) return alert('Datum fehlt');
+    const h=hoursBetween(datum,val('sStartZeit'),val('sEndZeit')); const betrag=calcSpesen(h);
+    state.spesen.unshift({id:uid(),monat:monthKey(datum),datum,typ:val('sTyp'),startOrt:val('sStartOrt'),zielOrt:val('sZielOrt'),startZeit:val('sStartZeit'),endZeit:val('sEndZeit'),stunden:h,beschreibung:val('sText'),betrag});
+    purgeTransientData(); save(); renderSpesen(); renderDashboard();
+  };
+  document.getElementById('sMonatPdfSave').onclick=async()=>{
+    const monat=val('sMonat'); const pdfs=await readPdfFiles(document.getElementById('sMonatPdf').files); if(!pdfs.length) return;
+    let bucket=state.spesenMonatsdocs.find(x=>x.monat===monat); if(!bucket){bucket={id:uid(),monat,pdfs:[]}; state.spesenMonatsdocs.push(bucket);} bucket.pdfs.push(...pdfs);
+    purgeTransientData(); save(); renderSpesen();
+  };
+  document.getElementById('sMonatFilter').onchange=renderSpesenList;
+  document.getElementById('sPrintMonth').onclick=()=>printSpesenMonth(val('sMonatFilter'));
+  document.getElementById('sPrintDay').onclick=()=>printSpesenDay(val('sDatum'));
+  renderSpesenList(); renderSpesenMonatDocs();
+}
+function renderSpesenMonatDocs(){
+  const monat=val('sMonat');
+  const bucket=state.spesenMonatsdocs.find(x=>x.monat===monat);
+  const el=document.getElementById('sMonatDocs');
+  if(!bucket || !bucket.pdfs?.length){el.innerHTML='<div class="empty">Keine Monats-PDFs gespeichert.</div>'; return;}
+  el.innerHTML=bucket.pdfs.map((p,i)=>`<div class="filepill"><div><strong>${esc(p.name)}</strong></div><div class="row auto"><button class="btn-ghost" onclick="openDataUrl('${jsQuote(p.data)}')">Öffnen</button><button class="btn-danger" onclick="deleteSpesenMonatPdf('${bucket.id}',${i})">Löschen</button></div></div>`).join('');
+}
+function deleteSpesenMonatPdf(bucketId,index){const bucket=state.spesenMonatsdocs.find(x=>x.id===bucketId); if(!bucket) return; bucket.pdfs.splice(index,1); if(!bucket.pdfs.length) state.spesenMonatsdocs=state.spesenMonatsdocs.filter(x=>x.id!==bucketId); save(); renderSpesen();}
+function renderSpesenList(){
+  const monat=val('sMonatFilter'); const items=state.spesen.filter(x=>x.monat===monat);
+  const sum=items.reduce((a,b)=>a+Number(b.betrag||0),0);
+  const html = `<div class="card"><div class="section-head"><div><h2>${monthLabel(monat)}</h2><p>Gesamt ${euro(sum)}</p></div></div>${items.length?`<table class="table"><thead><tr><th>Datum</th><th>Start</th><th>Ziel</th><th>Zeit</th><th>Text</th><th>Betrag</th><th></th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.datum)}</td><td>${esc(x.startOrt||'')}</td><td>${esc(x.zielOrt||'')}</td><td>${esc((x.startZeit||'')+' - '+(x.endZeit||''))}</td><td>${esc(x.beschreibung||'')}</td><td>${euro(x.betrag||0)}</td><td><button class="btn-danger" onclick="deleteSpese('${x.id}')">X</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Keine Spesen in diesem Monat.</div>'}</div>`;
+  document.getElementById('sList').innerHTML=html;
+}
+function deleteSpese(id){const i=state.spesen.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Spese löschen?')) return; state.spesen.splice(i,1); save(); renderSpesen(); renderDashboard();}
+function printSpesenDay(date){
+  const items=state.spesen.filter(x=>x.datum===date);
+  const title=`Spesen ${date}`;
+  const body=`<h1>${title}</h1><div class="sub">AS Technical Solution GmbH · Robert Kutschke</div>${renderSpesenPrintTable(items)}<div class="sum">Gesamt ${euro(items.reduce((a,b)=>a+Number(b.betrag||0),0))}</div>`;
+  openPrintDoc(title, body);
+}
+function printSpesenMonth(monat){
+  const items=state.spesen.filter(x=>x.monat===monat);
+  const title=`Spesen ${monthLabel(monat)}`;
+  const body=`<h1>${title}</h1><div class="sub">AS Technical Solution GmbH · Robert Kutschke</div>${renderSpesenPrintTable(items)}<div class="sum">Gesamt ${euro(items.reduce((a,b)=>a+Number(b.betrag||0),0))}</div>`;
+  openPrintDoc(title, body);
+}
+function renderSpesenPrintTable(items){
+  if(!items.length) return '<p>Keine Einträge vorhanden.</p>';
+  return `<table><thead><tr><th>Datum</th><th>Typ</th><th>Startort</th><th>Zielort</th><th>Zeit</th><th>Beschreibung</th><th>Betrag</th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.datum)}</td><td>${esc(x.typ)}</td><td>${esc(x.startOrt||'')}</td><td>${esc(x.zielOrt||'')}</td><td>${esc((x.startZeit||'')+' - '+(x.endZeit||''))}</td><td>${esc(x.beschreibung||'')}</td><td>${euro(x.betrag||0)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function buildWeeklySummary(items){
+  if(!items.length) return '';
+  return items.map((x,i)=>{
+    const head=[x.datum,x.firma].filter(Boolean).join(' · ');
+    const meta=[x.ort,x.kontakt,x.thema].filter(Boolean).join(' · ');
+    const parts=[`${i+1}. ${head}`];
+    if(meta) parts.push(meta);
+    if(x.text) parts.push(`Bericht: ${x.text}`);
+    if(x.next) parts.push(`Nächste Schritte: ${x.next}`);
+    return parts.join('\n');
+  }).join('\n\n');
+}
+
+function renderWochenbericht(){
+  const el=document.getElementById('wochenbericht');
+  const items=state.wochenberichte.filter(x=>x.kw===currentWeekKey).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const weeklySummary = buildWeeklySummary(items);
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=`
+    <div class="section-head"><div><h2>Wochenbericht</h2><p>${currentWeekKey} · nur aktuelle Woche gespeichert</p></div></div>
+    <div class="split">
+      <div>
+        <div class="card">
+          <div class="row row-tight"><div><label>KW</label><input value="${currentWeekKey}" readonly /></div><div><label>Datum</label><input id="wbDatum" type="date" value="${today}" /></div></div>
+          <div class="row"><div><label>Firma / Kunde</label><input id="wbFirma" /></div><div><label>Ort</label><input id="wbOrt" /></div></div>
+          <div class="row"><div><label>Ansprechpartner</label><input id="wbKontakt" /></div><div><label>Thema</label><input id="wbThema" /></div></div>
+          <div><label>Tagesbericht / Gespräch</label><textarea id="wbText"></textarea></div>
+          <div><label>Nächste Schritte</label><textarea id="wbNext"></textarea></div>
+          <div class="row auto"><button class="btn-primary" id="wbSave">Eintrag speichern</button><button class="btn-secondary" id="wbSaveAnfrage">Als Anfrage speichern</button><button class="btn-success" id="wbSaveBoth">Beides speichern</button><button class="btn-secondary" id="wbPrintDay">Tagesbericht drucken</button><button class="btn-success" id="wbPrintWeek">Wochenbericht PDF</button></div>
+          <div class="small" style="margin-top:10px">Wenn die Woche vorbei ist, bleibt nichts aus alten Wochen gespeichert.</div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="section-head"><div><h2>Einträge ${currentWeekKey}</h2><p>${items.length} gespeichert</p></div></div>
+          <div id="wbList">${items.length?items.map(x=>`<div class="item"><h4>${esc(x.datum)} · ${esc(x.firma)}</h4><div class="meta"><span>${esc(x.ort||'')}</span><span>${esc(x.kontakt||'')}</span><span>${esc(x.thema||'')}</span></div><div>${esc(x.text||'')}</div>${x.next?`<hr class="soft"><div><strong>Nächste Schritte:</strong><br>${esc(x.next)}</div>`:''}<div class="row auto" style="margin-top:10px"><button class="btn-secondary" onclick="printWochenberichtTag('${x.id}')">Drucken</button><button class="btn-danger" onclick="deleteWochenbericht('${x.id}')">Löschen</button></div></div>`).join(''):'<div class="empty">Noch kein Wochenbericht erfasst.</div>'}</div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div><h2>Wochen-Gesamtbericht</h2><p>Automatisch aus allen Einträgen der Woche zusammengeführt.</p></div></div>
+          <textarea readonly style="min-height:260px">${esc(weeklySummary || 'Noch keine Einträge in dieser Woche.')}</textarea>
+        </div>
+      </div>
+    </div>`;
+  function wbPayload(){
+    const firma=val('wbFirma').trim();
+    if(!firma){ alert('Firma fehlt'); return null; }
+    return {id:uid(),kw:currentWeekKey,datum:val('wbDatum'),firma,ort:val('wbOrt'),kontakt:val('wbKontakt'),thema:val('wbThema'),text:val('wbText'),next:val('wbNext')};
+  }
+  function saveWbOnly(){
+    const rec=wbPayload(); if(!rec) return;
+    state.wochenberichte.push(rec);
+    purgeTransientData(); save(); renderWochenbericht(); renderDashboard();
+  }
+  function saveWbAsAnfrage(alsoWeek){
+    const rec=wbPayload(); if(!rec) return;
+    if(alsoWeek) state.wochenberichte.push(rec);
+    state.anfragen.unshift({
+      id:uid(),
+      firma:rec.firma||'',
+      kontakt:rec.kontakt||'',
+      tel:'',
+      mail:'',
+      status:'Neu',
+      ort:rec.ort||'',
+      adresse:'',
+      plz:'',
+      datum:rec.datum||'',
+      uhrzeit:'',
+      interesse:'',
+      produkt:rec.thema||'',
+      nextStep:rec.next||'',
+      angebotNr:'',
+      bericht:rec.text||'',
+      reminderDate:rec.datum||'',
+      reminderTime:'',
+      uebersicht:buildCustomerOverview({firma:rec.firma,kontakt:rec.kontakt,ort:rec.ort,datum:rec.datum,produkt:rec.thema,nextStep:rec.next}),
+      notiz:rec.text||'',
+      pdfs:[],
+      erstellt:new Date().toISOString()
+    });
+    purgeTransientData(); save(); renderWochenbericht(); renderCRM('anfragen','Anfragen',state.anfragen); renderDashboard();
+  }
+  document.getElementById('wbSave').onclick=saveWbOnly;
+  document.getElementById('wbSaveAnfrage').onclick=()=>saveWbAsAnfrage(false);
+  document.getElementById('wbSaveBoth').onclick=()=>saveWbAsAnfrage(true);
+  document.getElementById('wbPrintDay').onclick=()=>{
+    const tmp={id:'tmp',kw:currentWeekKey,datum:val('wbDatum'),firma:val('wbFirma'),ort:val('wbOrt'),kontakt:val('wbKontakt'),thema:val('wbThema'),text:val('wbText'),next:val('wbNext')};
+    printWochenberichtRecord(tmp);
+  };
+  document.getElementById('wbPrintWeek').onclick=()=>printWochenberichtWoche();
+}
+function deleteWochenbericht(id){const i=state.wochenberichte.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Eintrag löschen?')) return; state.wochenberichte.splice(i,1); save(); renderWochenbericht(); renderDashboard();}
+function printWochenberichtTag(id){const rec=state.wochenberichte.find(x=>x.id===id); if(rec) printWochenberichtRecord(rec);}
+function printWochenberichtRecord(rec){
+  const title=`Tagesbericht ${rec.datum}`;
+  const body=`<h1>${title}</h1><div class="sub">AS Technical Solution GmbH · Robert Kutschke · ${currentWeekKey}</div><table><tbody><tr><th>Firma</th><td>${esc(rec.firma)}</td></tr><tr><th>Ort</th><td>${esc(rec.ort||'')}</td></tr><tr><th>Ansprechpartner</th><td>${esc(rec.kontakt||'')}</td></tr><tr><th>Thema</th><td>${esc(rec.thema||'')}</td></tr></tbody></table><h2>Bericht</h2><div class="block">${esc(rec.text||'')}</div><h2>Nächste Schritte</h2><div class="block">${esc(rec.next||'')}</div>`;
+  openPrintDoc(title, body);
+}
+function printWochenberichtWoche(){
+  const items=state.wochenberichte.filter(x=>x.kw===currentWeekKey).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const title=`Wochenbericht ${currentWeekKey}`;
+  const summary = buildWeeklySummary(items);
+  const body=`<h1>${title}</h1><div class="sub">AS Technical Solution GmbH · Robert Kutschke</div>${summary?`<h2>Wochen-Gesamtbericht</h2><div class="block">${esc(summary)}</div>`:''}${items.length?items.map(x=>`<div class="entry"><h2>${esc(x.datum)} · ${esc(x.firma)}</h2><div><strong>Ort:</strong> ${esc(x.ort||'')} · <strong>Ansprechpartner:</strong> ${esc(x.kontakt||'')} · <strong>Thema:</strong> ${esc(x.thema||'')}</div><div class="block" style="margin-top:8px">${esc(x.text||'')}</div>${x.next?`<div class="block" style="margin-top:8px"><strong>Nächste Schritte:</strong><br>${esc(x.next)}</div>`:''}</div>`).join(''):'<p>Keine Einträge vorhanden.</p>'}`;
+  openPrintDoc(title, body);
+}
+function openPrintDoc(title, body){
+  const w=window.open('','_blank');
+  if(!w) return alert('Pop-up blockiert');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px}h1{font-size:26px;margin:0 0 8px}h2{font-size:18px;margin:18px 0 8px}.sub{color:#444;margin-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #aaa;padding:8px;vertical-align:top;text-align:left;font-size:12px}th{background:#f2f2f2}.sum{margin-top:16px;font-size:18px;font-weight:700}.block{white-space:pre-wrap;border:1px solid #bbb;padding:10px;min-height:50px}.entry{margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid #ccc}@media print{body{padding:10mm}}</style></head><body>${body}<script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`);
+  w.document.close();
+}
+
+function renderPdfList(pdfs){
+  if(!pdfs.length) return '<div class="small">Keine PDFs hinterlegt.</div>';
+  return `<div class="filelist">${pdfs.map((p,i)=>`<div class="filepill"><div><strong>${esc(p.name)}</strong>${p.text?`<div class="small">Text erkannt · ${Math.min((p.text||'').length,5000)} Zeichen</div>`:'<div class="small">Kein lesbarer Text gefunden</div>'}</div><div class="row auto"><button class="btn-ghost" onclick="openDataUrl('${jsQuote(p.data)}')">Öffnen</button><button class="btn-ghost" onclick="togglePdfText(this)">Text</button></div></div><div class="pdftext" style="display:none">${esc(p.text||'Kein auslesbarer Text gefunden.')}</div>`).join('')}</div>`;
+}
+function togglePdfText(btn){const next=btn.parentElement.parentElement.nextElementSibling; if(next) next.style.display=next.style.display==='none'?'block':'none';}
+function openDataUrl(url){window.open(url,'_blank');}
+function val(id){return document.getElementById(id)?.value||''}
+
+async function readPdfFiles(fileList){
+  const files=[...(fileList||[])];
+  const out=[];
+  for(const file of files){
+    const data = await readAsDataURL(file);
+    const text = await extractPdfText(file).catch(()=> '');
+    out.push({name:file.name,data,text});
+  }
+  return out;
+}
+function readAsDataURL(file){return new Promise((res,rej)=>{const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file);});}
+async function extractPdfText(file){
+  if(!window['pdfjsLib']) return '';
+  if(window.pdfjsLib.GlobalWorkerOptions) window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.worker.min.mjs';
+  const buf = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({data:buf}).promise;
+  let full='';
+  for(let p=1;p<=pdf.numPages;p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const strings = content.items.map(i=>i.str).filter(Boolean);
+    full += strings.join(' ') + '\n';
+  }
+  return full.replace(/\s+/g,' ').trim();
+}
 </script>
 </body>
-</html>0
+</html>
