@@ -138,7 +138,8 @@ function normalizeState(s){
     termine:Array.isArray(s.termine)?s.termine:[],
     kalenderFocus:s.kalenderFocus||null,
     kalenderMonth:s.kalenderMonth || new Date().toISOString().slice(0,7),
-    kalenderEditId:s.kalenderEditId||null
+    kalenderEditId:s.kalenderEditId||null,
+    videoEditId:s.videoEditId||null
   };
 }
 function load(){try{return JSON.parse(localStorage.getItem(DBKEY));}catch(e){return null}}
@@ -191,6 +192,14 @@ function renderDashboard(){
   const today = new Date().toISOString().slice(0,10);
   const spMonat = keepLast3Months(state.spesen, x=>x.monat||monthKey(x.datum)).filter(x=>x.monat===monthKey(today)||monthKey(x.datum)===monthKey(today));
   const wochen = state.wochenberichte.filter(x=>x.kw===currentWeekKey);
+  const todayItems = collectCalendarItems().filter(x=>x.datum===today).sort((a,b)=>(a.uhrzeit||'99:99').localeCompare(b.uhrzeit||'99:99'));
+  const todayHtml = todayItems.length
+    ? todayItems.map(x=>`<div class="item" style="margin-bottom:10px"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel||x.firma||'Termin')}</h4><div class="meta"><span>${esc(x.uhrzeit||'ohne Uhrzeit')}</span><span>${esc(x.ort||'')}</span><span>${esc(x.kontakt||'')}</span></div></div><div>${badge(x.typ||'Termin', x.color||'blue')}</div></div>${x.nextStep?`<div class="small"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}</div>`).join('')
+    : '<div class="empty">Heute ist aktuell nichts hinterlegt.</div>';
+  const latestVideos = state.videos.slice(0,3);
+  const videoHtml = latestVideos.length
+    ? latestVideos.map(v=>`<div class="item" style="margin-bottom:10px"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(v.titel||'Video')}</h4><div class="meta"><span>${esc(v.firma||'')}</span></div></div><div>${badge('Video','blue')}</div></div><div class="row"><button class="btn-secondary" onclick="window.open('${jsQuote(v.url||'')}','_blank')">Link 1 öffnen</button>${v.url2?`<button class="btn-ghost" onclick="window.open('${jsQuote(v.url2)}','_blank')">Link 2 öffnen</button>`:''}</div></div>`).join('')
+    : '<div class="empty">Noch keine Videos hinterlegt.</div>';
   const html = `
     <div class="hero">
       <h1>Vertrieb im Griff</h1>
@@ -202,6 +211,8 @@ function renderDashboard(){
       <div class="kpi"><div class="label">Videos</div><div class="value">${state.videos.length}</div><div class="sub">verknüpfte Kundenlinks</div></div>
       <div class="kpi"><div class="label">Spesen Monat</div><div class="value">${euro(spMonat.reduce((a,b)=>a+Number(b.betrag||0),0))}</div><div class="sub">${monthLabel(monthKey(today))}</div></div>
     </div>
+    <div class="card" style="margin-top:14px"><div class="section-head"><div><h2>Heute zu erledigen</h2><p>${today}</p></div><div><button class="btn-primary" onclick="showScreen('kalender')">Kalender öffnen</button></div></div>${todayHtml}</div>
+    <div class="card" style="margin-top:14px"><div class="section-head"><div><h2>Videos direkt von der Startseite</h2><p>Die letzten gespeicherten Videos sofort anklickbar.</p></div><div><button class="btn-primary" onclick="showScreen('videos')">Alle Videos</button></div></div>${videoHtml}</div>
     <div class="grid quick" style="margin-top:14px">
       <div class="card"><div class="section-head"><div><h2>Kaltaquise</h2><p>Direkter Einstieg für neue Kontakte.</p></div></div><div class="row"><button class="btn-primary" onclick="showScreen('leads');document.getElementById('leadFirma')?.focus()">Lead anlegen</button><button class="btn-secondary" onclick="showScreen('anfragen');document.getElementById('anfrageFirma')?.focus()">Anfrage anlegen</button></div></div>
       <div class="card"><div class="section-head"><div><h2>Videos</h2><p>Links pro Firma speichern und suchen.</p></div></div><div class="row"><button class="btn-primary" onclick="showScreen('videos');document.getElementById('videoFirma')?.focus()">Video-Link hinzufügen</button></div></div>
@@ -217,6 +228,8 @@ function renderCRM(screenId,title,list){
   const prefix=isLead?'lead':'anfrage';
   const singular = isLead ? 'Lead' : 'Anfrage';
   const searchPlaceholder = title+' suchen';
+  const editId = isLead ? state.leadEditId : state.anfrageEditId;
+  const edit = editId ? list.find(x=>x.id===editId) : null;
   el.innerHTML=`
     <div class="section-head"><div><h2>${title}</h2><p>Kunden mit PDFs, Suchfunktion, automatischer Texterkennung und internem Kalender.</p></div></div>
     <div class="split">
@@ -255,7 +268,7 @@ function renderCRM(screenId,title,list){
         <div class="small" style="margin:8px 0 0">AS Technical Solution wird bei der Erkennung ignoriert. Datum, Uhrzeit, Interesse, Produkt und nächster Schritt werden wenn möglich direkt aus dem Text übernommen.</div>
         <div style="margin-top:10px"><label>PDF-Dateien</label><input id="${prefix}Pdf" type="file" accept="application/pdf" multiple /></div>
         <div class="small" style="margin:8px 0 10px">PDF-Inhalt wird bei normalen Text-PDFs gelesen und in Felder und Suche übernommen.</div>
-        <div class="row auto"><button class="btn-secondary" id="${prefix}Parse">Text in Felder übernehmen</button><button class="btn-primary" id="${prefix}Save">${singular} speichern</button></div>
+        <div class="row auto"><button class="btn-secondary" id="${prefix}Parse">Text in Felder übernehmen</button><button class="btn-primary" id="${prefix}Save">${edit ? singular+' aktualisieren' : singular+' speichern'}</button>${edit ? `<button class="btn-ghost" id="${prefix}Cancel">Abbrechen</button>` : ``}</div>
       </div>
       <div>
         <div class="toolbar"><input id="${prefix}Search" placeholder="${searchPlaceholder}" /></div>
@@ -273,6 +286,29 @@ function renderCRM(screenId,title,list){
     document.getElementById(prefix+'Pdf').dataset.parsed = JSON.stringify(parsedPdfs);
     applyParsedDataToForm(prefix, parsedPdfs, false);
   });
+  if(edit){
+    setFieldValue(prefix+'Firma', edit.firma, true);
+    setFieldValue(prefix+'Kontakt', edit.kontakt, true);
+    setFieldValue(prefix+'Tel', edit.tel, true);
+    setFieldValue(prefix+'Mail', edit.mail, true);
+    setFieldValue(prefix+'Adresse', edit.adresse, true);
+    setFieldValue(prefix+'Plz', edit.plz, true);
+    setFieldValue(prefix+'Ort', edit.ort, true);
+    setFieldValue(prefix+'Datum', edit.datum, true);
+    setFieldValue(prefix+'Uhrzeit', edit.uhrzeit, true);
+    const st=document.getElementById(prefix+'Status'); if(st) st.value = edit.status || 'Neu';
+    setFieldValue(prefix+'Interesse', edit.interesse, true);
+    setFieldValue(prefix+'Produkt', edit.produkt, true);
+    setFieldValue(prefix+'Next', edit.nextStep, true);
+    setFieldValue(prefix+'AngebotNr', edit.angebotNr, true);
+    setFieldValue(prefix+'RemDate', edit.reminderDate, true);
+    setFieldValue(prefix+'RemTime', edit.reminderTime, true);
+    setFieldValue(prefix+'Overview', edit.uebersicht, true);
+    setFieldValue(prefix+'Bericht', edit.bericht, true);
+    setFieldValue(prefix+'Notiz', edit.notiz, true);
+    document.getElementById(prefix+'Pdf').dataset.parsed = JSON.stringify(edit.pdfs || []);
+  }
+  if(document.getElementById(prefix+'Cancel')) document.getElementById(prefix+'Cancel').onclick=()=>cancelCRMEdit(prefix);
 
   document.getElementById(prefix+'Save').onclick=async()=>{
     let pdfs = [];
@@ -299,8 +335,8 @@ function renderCRM(screenId,title,list){
     const reminderDate=val(prefix+'RemDate')||extracted.reminderDate||datum||'';
     const reminderTime=val(prefix+'RemTime')||extracted.reminderTime||uhrzeit||'';
     const uebersicht=buildCustomerOverview({firma,kontakt,tel,mail,adresse,plz,ort,datum,uhrzeit,interesse,produkt,nextStep});
-    list.unshift({
-      id:uid(),
+    const payload = {
+      id: edit?.id || uid(),
       firma, kontakt, tel, mail, status:val(prefix+'Status'),
       ort, adresse, plz,
       datum, uhrzeit,
@@ -311,9 +347,16 @@ function renderCRM(screenId,title,list){
       uebersicht,
       bericht: rawBericht || rawNotiz || '',
       notiz:rawNotiz,
-      pdfs,
-      erstellt:new Date().toISOString()
-    });
+      pdfs: pdfs.length ? pdfs : (edit?.pdfs || []),
+      erstellt: edit?.erstellt || new Date().toISOString()
+    };
+    if(edit){
+      const idx = list.findIndex(x=>x.id===edit.id);
+      if(idx>=0) list[idx] = payload;
+      if(prefix==='lead') state.leadEditId = null; else state.anfrageEditId = null;
+    } else {
+      list.unshift(payload);
+    }
     save();
     renderCRM(screenId,title,list);
     renderDashboard();
@@ -352,6 +395,7 @@ function renderCRMList(prefix,list){
       ${renderPdfList(x.pdfs||[])}
       <div class="row auto" style="margin-top:10px">
         ${(x.reminderDate || x.datum) ? `<button class="btn-success" onclick="openCalendarForRecordById('${prefix}','${x.id}')">Im Kalender</button>`:''}
+        <button class="btn-secondary" onclick="editCRM('${prefix}','${x.id}')">Bearbeiten</button>
         ${prefix==='anfrage' ? `<button class="btn-secondary" onclick="convertAnfrageToLead('${x.id}')">Als Lead übernehmen</button>` : ''}
         <button class="btn-danger" onclick="deleteCRM('${prefix}','${x.id}')">Löschen</button>
       </div>
@@ -408,8 +452,17 @@ function deleteCRM(prefix,id){
   const list=prefix==='lead'?state.leads:state.anfragen;
   const i=list.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Eintrag löschen?')) return; list.splice(i,1); save(); renderAll();
 }
-
-
+function editCRM(prefix,id){
+  if(prefix==='lead') state.leadEditId = id; else state.anfrageEditId = id;
+  save();
+  renderCRM(prefix==='lead'?'leads':'anfragen', prefix==='lead'?'Leads':'Anfragen', prefix==='lead'?state.leads:state.anfragen);
+  showScreen(prefix==='lead'?'leads':'anfragen');
+}
+function cancelCRMEdit(prefix){
+  if(prefix==='lead') state.leadEditId = null; else state.anfrageEditId = null;
+  save();
+  renderCRM(prefix==='lead'?'leads':'anfragen', prefix==='lead'?'Leads':'Anfragen', prefix==='lead'?state.leads:state.anfragen);
+}
 
 function normalizeLines(text){
   return (text||'').replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
@@ -939,7 +992,7 @@ function renderMaschinen(){
   const el=document.getElementById('maschinen');
   const options=state.hersteller.map(h=>`<option>${esc(h)}</option>`).join('');
   el.innerHTML=`
-    <div class="section-head"><div><h2>Maschinen</h2><p>Hersteller, Preislisten und Unterlagen mit PDF-Suche.</p></div></div>
+    <div class="section-head"><div><h2>Maschinen</h2><p>Hersteller, Preislisten und Unterlagen manuell pflegen und durchsuchen.</p></div></div>
     <div class="split">
       <div>
         <div class="card">
@@ -955,20 +1008,20 @@ function renderMaschinen(){
             <div><label>Dokumentart</label><select id="mTyp"><option>Maschine</option><option>Preisliste</option><option>Anleitung</option><option>Unterlage</option></select></div>
             <div><label>Preis / Hinweis</label><input id="mPreis" placeholder="z. B. 12.500 €" /></div>
           </div>
-          <div><label>PDF-Datei</label><input id="mPdf" type="file" accept="application/pdf" multiple /></div>
-          <div class="row auto" style="margin-top:10px"><button class="btn-primary" id="mSave">Dokument speichern</button></div>
+          <div><label>Link (optional)</label><input id="mLink" placeholder="https://..." /></div>
+          <div><label>Inhalt / Beschreibung</label><textarea id="mInhalt" placeholder="Hier trägst du Maschineninfo, Preisliste, Daten oder Hinweise manuell ein."></textarea></div>
+          <div class="row auto" style="margin-top:10px"><button class="btn-primary" id="mSave">Eintrag speichern</button></div>
         </div>
       </div>
       <div>
-        <div class="toolbar"><input id="mSearch" placeholder="Hersteller, Titel oder PDF-Inhalt suchen" /></div>
+        <div class="toolbar"><input id="mSearch" placeholder="Hersteller, Titel, Preis oder Inhalt suchen" /></div>
         <div id="mList" class="list"></div>
       </div>
     </div>`;
   document.getElementById('herstellerSave').onclick=()=>{const h=val('herstellerNeu').trim(); if(!h) return; if(!state.hersteller.includes(h)) state.hersteller.push(h); save(); renderMaschinen();};
-  document.getElementById('mSave').onclick=async()=>{
+  document.getElementById('mSave').onclick=()=>{
     const hersteller=val('mHersteller'); const titel=val('mTitel'); if(!hersteller||!titel) return alert('Hersteller und Titel fehlen');
-    const pdfs=await readPdfFiles(document.getElementById('mPdf').files);
-    state.maschinenDocs.unshift({id:uid(),hersteller,titel,typ:val('mTyp'),preis:val('mPreis'),pdfs,erstellt:new Date().toISOString()});
+    state.maschinenDocs.unshift({id:uid(),hersteller,titel,typ:val('mTyp'),preis:val('mPreis'),link:val('mLink'),inhalt:val('mInhalt'),erstellt:new Date().toISOString()});
     save(); renderMaschinen(); renderDashboard();
   };
   document.getElementById('mSearch').oninput=renderMaschinenList;
@@ -976,23 +1029,25 @@ function renderMaschinen(){
 }
 function renderMaschinenList(){
   const q=strip(val('mSearch'));
-  const filtered=state.maschinenDocs.filter(x=>[x.hersteller,x.titel,x.typ,x.preis,(x.pdfs||[]).map(p=>p.name+' '+(p.text||'')).join(' ')].join(' ').toLowerCase().includes(q));
+  const filtered=state.maschinenDocs.filter(x=>[x.hersteller,x.titel,x.typ,x.preis,x.link,x.inhalt].join(' ').toLowerCase().includes(q));
   const el=document.getElementById('mList');
   if(!filtered.length){el.innerHTML='<div class="empty">Keine Maschinenunterlagen gefunden.</div>';return;}
-  el.innerHTML=filtered.map(x=>`<div class="item"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel)}</h4><div class="meta"><span>${esc(x.hersteller)}</span><span>${esc(x.typ)}</span><span>${esc(x.preis||'')}</span></div></div><div>${badge(x.hersteller,'violet')}</div></div>${renderPdfList(x.pdfs||[])}<div class="row auto" style="margin-top:10px"><button class="btn-danger" onclick="deleteMachine('${x.id}')">Löschen</button></div></div>`).join('');
+  el.innerHTML=filtered.map(x=>`<div class="item"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel)}</h4><div class="meta"><span>${esc(x.hersteller)}</span><span>${esc(x.typ)}</span><span>${esc(x.preis||'')}</span></div></div><div>${badge(x.hersteller,'violet')}</div></div>${x.link?`<div><a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.link)}</a></div>`:''}${x.inhalt?`<div class="pdftext" style="display:block;max-height:none;margin-top:8px">${esc(x.inhalt)}</div>`:''}<div class="row auto" style="margin-top:10px">${x.link?`<button class="btn-secondary" onclick="window.open('${jsQuote(x.link)}','_blank')">Öffnen</button>`:''}<button class="btn-danger" onclick="deleteMachine('${x.id}')">Löschen</button></div></div>`).join('');
 }
 function deleteMachine(id){const i=state.maschinenDocs.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Dokument löschen?')) return; state.maschinenDocs.splice(i,1); save(); renderMaschinen(); renderDashboard();}
 
 function renderVideos(){
   const el=document.getElementById('videos');
+  const edit = state.videoEditId ? state.videos.find(x=>x.id===state.videoEditId) : null;
   el.innerHTML=`
-    <div class="section-head"><div><h2>Videos</h2><p>Video-Links zu Firmen speichern, benennen und suchen.</p></div></div>
+    <div class="section-head"><div><h2>Videos</h2><p>Video-Links zu Firmen speichern, bearbeiten, benennen und suchen.</p></div></div>
     <div class="split">
       <div class="card">
-        <div class="row"><div><label>Firma</label><input id="videoFirma" /></div><div><label>Titel</label><input id="videoTitel" placeholder="z. B. Graef Demo Masterline" /></div></div>
-        <div><label>Video-Link</label><input id="videoUrl" placeholder="https://..." /></div>
-        <div><label>Beschreibung</label><textarea id="videoNotiz"></textarea></div>
-        <div class="row auto"><button class="btn-primary" id="videoSave">Video speichern</button></div>
+        <div class="row"><div><label>Firma</label><input id="videoFirma" value="${esc(edit?.firma||'')}" /></div><div><label>Titel</label><input id="videoTitel" placeholder="z. B. Graef Demo Masterline" value="${esc(edit?.titel||'')}" /></div></div>
+        <div><label>Video-Link 1</label><input id="videoUrl" placeholder="https://..." value="${esc(edit?.url||'')}" /></div>
+        <div><label>Video-Link 2</label><input id="videoUrl2" placeholder="https://..." value="${esc(edit?.url2||'')}" /></div>
+        <div><label>Beschreibung</label><textarea id="videoNotiz">${esc(edit?.beschreibung||'')}</textarea></div>
+        <div class="row auto"><button class="btn-primary" id="videoSave">${edit?'Video aktualisieren':'Video speichern'}</button>${edit?'<button class="btn-secondary" id="videoCancel">Abbrechen</button>':''}</div>
       </div>
       <div>
         <div class="toolbar"><input id="videoSearch" placeholder="Firma, Titel oder Link suchen" /></div>
@@ -1000,41 +1055,165 @@ function renderVideos(){
       </div>
     </div>`;
   document.getElementById('videoSave').onclick=()=>{
-    const firma=val('videoFirma').trim(); const titel=val('videoTitel').trim(); const url=val('videoUrl').trim();
-    if(!firma||!titel||!url) return alert('Firma, Titel und Link fehlen');
-    state.videos.unshift({id:uid(),firma,titel,url,beschreibung:val('videoNotiz')});
+    const firma=val('videoFirma').trim(); const titel=val('videoTitel').trim(); const url=val('videoUrl').trim(); const url2=val('videoUrl2').trim();
+    if(!firma||!titel||(!url && !url2)) return alert('Firma, Titel und mindestens ein Link fehlen');
+    const payload={id: edit?.id || uid(), firma,titel,url,url2,beschreibung:val('videoNotiz')};
+    if(edit){
+      const i=state.videos.findIndex(x=>x.id===edit.id); if(i>=0) state.videos[i]=payload;
+      state.videoEditId=null;
+    } else {
+      state.videos.unshift(payload);
+    }
     save(); renderVideos(); renderDashboard();
   };
+  if(document.getElementById('videoCancel')) document.getElementById('videoCancel').onclick=()=>{state.videoEditId=null; save(); renderVideos();};
   document.getElementById('videoSearch').oninput=renderVideoList;
   renderVideoList();
 }
 function renderVideoList(){
   const q=strip(val('videoSearch'));
-  const filtered=state.videos.filter(x=>[x.firma,x.titel,x.url,x.beschreibung].join(' ').toLowerCase().includes(q));
+  const filtered=state.videos.filter(x=>[x.firma,x.titel,x.url,x.url2,x.beschreibung].join(' ').toLowerCase().includes(q));
   const el=document.getElementById('videoList');
   if(!filtered.length){el.innerHTML='<div class="empty">Keine gespeicherten Videos.</div>';return;}
-  el.innerHTML=filtered.map(x=>`<div class="item"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel)}</h4><div class="meta"><span>${esc(x.firma)}</span></div></div><div>${badge('Video','blue')}</div></div><div><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a></div>${x.beschreibung?`<div style="margin-top:8px">${esc(x.beschreibung)}</div>`:''}<div class="row auto" style="margin-top:10px"><button class="btn-secondary" onclick="window.open('${jsQuote(x.url)}','_blank')">Öffnen</button><button class="btn-danger" onclick="deleteVideo('${x.id}')">Löschen</button></div></div>`).join('');
+  el.innerHTML=filtered.map(x=>`<div class="item"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel)}</h4><div class="meta"><span>${esc(x.firma)}</span></div></div><div>${badge('Video','blue')}</div></div>${x.url?`<div><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a></div>`:''}${x.url2?`<div style="margin-top:6px"><a href="${esc(x.url2)}" target="_blank" rel="noopener">${esc(x.url2)}</a></div>`:''}${x.beschreibung?`<div style="margin-top:8px">${esc(x.beschreibung)}</div>`:''}<div class="row auto" style="margin-top:10px">${x.url?`<button class="btn-secondary" onclick="window.open('${jsQuote(x.url)}','_blank')">Link 1</button>`:''}${x.url2?`<button class="btn-secondary" onclick="window.open('${jsQuote(x.url2)}','_blank')">Link 2</button>`:''}<button class="btn-secondary" onclick="editVideo('${x.id}')">Bearbeiten</button><button class="btn-danger" onclick="deleteVideo('${x.id}')">Löschen</button></div></div>`).join('');
 }
-function deleteVideo(id){const i=state.videos.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Video löschen?')) return; state.videos.splice(i,1); save(); renderVideos(); renderDashboard();}
+function editVideo(id){state.videoEditId=id; save(); renderVideos();}
+function deleteVideo(id){const i=state.videos.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Video löschen?')) return; state.videos.splice(i,1); if(state.videoEditId===id) state.videoEditId=null; save(); renderVideos(); renderDashboard();}
 function jsQuote(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
 
-function calcSpesen(hours){ if(hours>=24) return 28; if(hours>=8) return 14; return 0; }
-function hoursBetween(date,start,end){ if(!start||!end) return 0; const a=new Date(`${date}T${start}`), b=new Date(`${date}T${end}`); let ms=b-a; if(ms<0) ms += 24*3600*1000; return Math.round(ms/36e5*100)/100; }
+
+
+function localDateStr(date){ const d=new Date(date); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function addDaysToDate(dateStr, days){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+days);
+  return localDateStr(d);
+}
+function diffDaysInclusive(startDate, endDate){
+  const a = new Date(startDate+'T00:00:00');
+  const b = new Date(endDate+'T00:00:00');
+  return Math.floor((b-a)/86400000)+1;
+}
+function calculateTripSpesen(startDate, endDate, overnight){
+  if(!startDate || !endDate) return {tage:0, betrag:0, breakdown:[]};
+  const days = diffDaysInclusive(startDate, endDate);
+  if(days <= 0) return {tage:0, betrag:0, breakdown:[]};
+  const breakdown=[];
+  let total=0;
+  for(let i=0;i<days;i++){
+    const current = addDaysToDate(startDate, i);
+    let amount = 14;
+    let label = i===0 ? 'Anreisetag' : (i===days-1 ? 'Abreisetag' : 'Reisetag');
+    if(overnight && days===1){
+      amount = 14;
+      label = 'Tageseinsatz';
+    } else if(overnight && i>0 && i<days-1){
+      amount = 28;
+      label = 'Hoteltag';
+    }
+    breakdown.push({datum:current, label, amount, startOrt:'', zielOrt:'', startZeit:'', endZeit:'', bericht:''});
+    total += amount;
+  }
+  return {tage:days, betrag:total, breakdown};
+}
+function buildTripDayRows(){
+  const trip = calculateTripSpesen(val('sDatum'), val('sEndDatum') || val('sDatum'), val('sHotel') === 'ja');
+  const startOrt = val('sStartOrt');
+  const endOrt = val('sZielOrt');
+  return trip.breakdown.map((day, idx, arr)=>({
+    ...day,
+    startOrt: idx===0 ? startOrt : '',
+    zielOrt: idx===arr.length-1 ? endOrt : ''
+  }));
+}
+function syncTripNextStarts(){
+  const rows=[...document.querySelectorAll('[data-trip-row]')];
+  rows.forEach((row, idx)=>{
+    if(idx===0) return;
+    const prevZiel = rows[idx-1]?.querySelector('[data-field="zielOrt"]')?.value || '';
+    const startInput = row.querySelector('[data-field="startOrt"]');
+    if(startInput) startInput.value = prevZiel;
+  });
+}
+function collectTripDayRows(){
+  return [...document.querySelectorAll('[data-trip-row]')].map(row=>({
+    datum: row.querySelector('[data-field="datum"]').value,
+    label: row.querySelector('[data-field="label"]').value,
+    amount: Number(row.querySelector('[data-field="amount"]').dataset.amount || 0),
+    startOrt: row.querySelector('[data-field="startOrt"]').value.trim(),
+    zielOrt: row.querySelector('[data-field="zielOrt"]').value.trim(),
+    startZeit: row.querySelector('[data-field="startZeit"]').value || '',
+    endZeit: row.querySelector('[data-field="endZeit"]').value || '',
+    bericht: row.querySelector('[data-field="bericht"]').value.trim()
+  }));
+}
+function updateTripOverview(){
+  const rows = collectTripDayRows();
+  const total = rows.reduce((sum,row)=>sum+Number(row.amount||0),0);
+  const summary = rows.map(row=>{
+    const zeit = (row.startZeit || row.endZeit) ? ` · ${row.startZeit||'--:--'} - ${row.endZeit||'--:--'}` : '';
+    const route = ` · ${row.startOrt||'-'} → ${row.zielOrt||'-'}`;
+    const bericht = row.bericht ? ` · ${row.bericht}` : '';
+    return `${row.datum} · ${row.label}${route}${zeit} · ${euro(row.amount)}${bericht}`;
+  }).join('\n');
+  const sumEl=document.getElementById('sBreakdown');
+  const totalEl=document.getElementById('sBetrag');
+  const tageEl=document.getElementById('sTage');
+  if(sumEl) sumEl.value = summary;
+  if(totalEl) totalEl.value = euro(total);
+  if(tageEl) tageEl.value = rows.length ? String(rows.length) : '';
+}
+function bindTripRows(){
+  document.querySelectorAll('[data-trip-row] [data-field="zielOrt"]').forEach(input=>{
+    input.oninput=()=>{ syncTripNextStarts(); updateTripOverview(); };
+  });
+  document.querySelectorAll('[data-trip-row] [data-field="startZeit"], [data-trip-row] [data-field="endZeit"], [data-trip-row] [data-field="bericht"]').forEach(input=>{
+    input.oninput=updateTripOverview;
+  });
+}
+function renderTripRows(){
+  const holder=document.getElementById('sTripRows');
+  if(!holder) return;
+  const rows=buildTripDayRows();
+  holder.innerHTML = rows.length ? rows.map((row, idx)=>`
+    <div class="item" data-trip-row="${idx}">
+      <div class="row row-tight">
+        <div><label>Datum</label><input data-field="datum" value="${esc(row.datum)}" readonly /></div>
+        <div><label>Tag</label><input data-field="label" value="${esc(row.label)}" readonly /></div>
+        <div><label>Satz</label><input data-field="amount" data-amount="${row.amount}" value="${esc(euro(row.amount))}" readonly /></div>
+      </div>
+      <div class="row">
+        <div><label>Von wo</label><input data-field="startOrt" value="${esc(row.startOrt)}" ${idx>0 ? 'readonly' : ''} /></div>
+        <div><label>Nach wo</label><input data-field="zielOrt" value="${esc(row.zielOrt)}" /></div>
+      </div>
+      <div class="row row-tight">
+        <div><label>Startzeit</label><input data-field="startZeit" type="time" value="${esc(row.startZeit)}" /></div>
+        <div><label>Endzeit</label><input data-field="endZeit" type="time" value="${esc(row.endZeit)}" /></div>
+      </div>
+      <div><label>Bericht / Was gemacht / Wie gemacht</label><textarea data-field="bericht" placeholder="Von wo, nach wo, was gemacht, wie gemacht."></textarea></div>
+    </div>
+  `).join('') : '<div class="empty">Bitte Reisedaten eingeben.</div>';
+  syncTripNextStarts();
+  bindTripRows();
+  updateTripOverview();
+}
 function renderSpesen(){
   const el=document.getElementById('spesen');
-  const today=new Date().toISOString().slice(0,10); const months=[0,1,2].map(i=>{const d=new Date(); d.setMonth(d.getMonth()-i,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
+  const today=localDateStr(new Date());
+  const months=[0,1,2].map(i=>{const d=new Date(); d.setMonth(d.getMonth()-i,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const monthOptions=months.map(k=>`<option value="${k}">${monthLabel(k)}</option>`).join('');
   el.innerHTML=`
-    <div class="section-head"><div><h2>Spesen</h2><p>Tagespauschalen mit Druck/PDF je Monat.</p></div></div>
+    <div class="section-head"><div><h2>Spesen</h2><p>Mehrtagesreisen mit Hotel sauber als 14 / 28 / 14 abbilden.</p></div></div>
     <div class="split">
       <div>
         <div class="card">
-          <div class="row row-tight"><div><label>Datum</label><input id="sDatum" type="date" value="${today}" /></div><div><label>Typ</label><select id="sTyp"><option>Tagesspesen</option><option>Fahrt</option><option>Sonstiges</option></select></div></div>
-          <div class="row row-tight"><div><label>Startort</label><input id="sStartOrt" /></div><div><label>Zielort</label><input id="sZielOrt" /></div></div>
-          <div class="row row-tight"><div><label>Zeit Start</label><input id="sStartZeit" type="time" /></div><div><label>Zeit Ende</label><input id="sEndZeit" type="time" /></div><div><label>Stunden</label><input id="sHours" readonly /></div></div>
-          <div><label>Beschreibung</label><textarea id="sText"></textarea></div>
-          <div class="row auto" style="align-items:end"><div style="flex:1 1 180px"><label>Betrag</label><input id="sBetrag" readonly /></div><button class="btn-primary" id="sSave">Spese speichern</button></div>
+          <div class="row row-tight"><div><label>Typ</label><select id="sTyp"><option>Mehrtagesreise</option><option>Tagesspesen</option><option>Fahrt</option><option>Sonstiges</option></select></div><div><label>Hotel / Übernachtung</label><select id="sHotel"><option value="ja">Ja</option><option value="nein">Nein</option></select></div></div>
+          <div class="row row-tight"><div><label>Startdatum</label><input id="sDatum" type="date" value="${today}" /></div><div><label>Enddatum</label><input id="sEndDatum" type="date" value="${today}" /></div><div><label>Reisetage</label><input id="sTage" readonly /></div></div>
+          <div class="row row-tight"><div><label>Startort 1. Tag</label><input id="sStartOrt" /></div><div><label>Endort letzter Tag</label><input id="sZielOrt" /></div></div>
+          <div class="row auto" style="align-items:end"><div style="flex:1 1 180px"><label>Gesamtbetrag</label><input id="sBetrag" readonly /></div><button class="btn-secondary" id="sBuildTrip">Reisetage aufbauen</button><button class="btn-primary" id="sSave">Reise speichern</button></div>
         </div>
+        <div class="card"><div id="sTripRows" class="list"></div></div>
+        <div class="card"><div class="row"><div style="flex:1 1 320px"><label>Aufteilung</label><textarea id="sBreakdown" readonly style="min-height:220px"></textarea></div></div></div>
         <div class="card">
           <div class="row auto" style="align-items:end"><div style="flex:1 1 240px"><label>Monat</label><select id="sMonat">${monthOptions}</select></div><div style="flex:1 1 240px"><label>Monats-PDFs</label><input id="sMonatPdf" type="file" accept="application/pdf" multiple /></div><button class="btn-secondary" id="sMonatPdfSave">PDFs zum Monat speichern</button></div>
           <div class="row auto" style="margin-top:10px"><button class="btn-success" id="sPrintDay">Tagesansicht drucken</button><button class="btn-primary" id="sPrintMonth">Monats-PDF öffnen</button></div>
@@ -1046,12 +1225,33 @@ function renderSpesen(){
         <div id="sList"></div>
       </div>
     </div>`;
-  const recalc=()=>{const h=hoursBetween(val('sDatum'),val('sStartZeit'),val('sEndZeit')); document.getElementById('sHours').value=h?String(h).replace('.',','):''; document.getElementById('sBetrag').value=euro(calcSpesen(h));};
-  ['sDatum','sStartZeit','sEndZeit'].forEach(id=>document.getElementById(id).oninput=recalc); recalc();
+  const rebuildTrip=()=>renderTripRows();
+  ['sDatum','sEndDatum','sHotel','sStartOrt','sZielOrt'].forEach(id=>document.getElementById(id).oninput=rebuildTrip);
+  document.getElementById('sBuildTrip').onclick=renderTripRows;
+  renderTripRows();
   document.getElementById('sSave').onclick=()=>{
-    const datum=val('sDatum'); if(!datum) return alert('Datum fehlt');
-    const h=hoursBetween(datum,val('sStartZeit'),val('sEndZeit')); const betrag=calcSpesen(h);
-    state.spesen.unshift({id:uid(),monat:monthKey(datum),datum,typ:val('sTyp'),startOrt:val('sStartOrt'),zielOrt:val('sZielOrt'),startZeit:val('sStartZeit'),endZeit:val('sEndZeit'),stunden:h,beschreibung:val('sText'),betrag});
+    const datum=val('sDatum');
+    const endDatum=val('sEndDatum') || datum;
+    if(!datum || !endDatum) return alert('Start- und Enddatum fehlen');
+    if(endDatum < datum) return alert('Enddatum liegt vor dem Startdatum');
+    const rows = collectTripDayRows();
+    if(!rows.length) return alert('Bitte Reisetage aufbauen.');
+    if(rows.some(r=>!r.startOrt || !r.zielOrt || !r.bericht)) return alert('Bitte jeden Tag komplett ausfüllen: von wo, nach wo und Bericht.');
+    const total = rows.reduce((sum,row)=>sum+Number(row.amount||0),0);
+    state.spesen.unshift({
+      id:uid(),
+      monat:monthKey(datum),
+      datum,
+      endDatum,
+      typ:val('sTyp'),
+      hotel:val('sHotel')==='ja',
+      startOrt:rows[0]?.startOrt||'',
+      zielOrt:rows[rows.length-1]?.zielOrt||'',
+      tage:rows.length,
+      beschreibung:rows.map(r=>`${r.datum}: ${r.bericht}`).join('\n'),
+      betrag:total,
+      breakdown:rows
+    });
     purgeTransientData(); save(); renderSpesen(); renderDashboard();
   };
   document.getElementById('sMonatPdfSave').onclick=async()=>{
@@ -1073,9 +1273,9 @@ function renderSpesenMonatDocs(){
 }
 function deleteSpesenMonatPdf(bucketId,index){const bucket=state.spesenMonatsdocs.find(x=>x.id===bucketId); if(!bucket) return; bucket.pdfs.splice(index,1); if(!bucket.pdfs.length) state.spesenMonatsdocs=state.spesenMonatsdocs.filter(x=>x.id!==bucketId); save(); renderSpesen();}
 function renderSpesenList(){
-  const monat=val('sMonatFilter'); const items=state.spesen.filter(x=>x.monat===monat);
+  const monat=val('sMonatFilter'); const items=state.spesen.filter(x=>x.monat===monat).sort((a,b)=>(a.datum||'').localeCompare(b.datum||''));
   const sum=items.reduce((a,b)=>a+Number(b.betrag||0),0);
-  const html = `<div class="card"><div class="section-head"><div><h2>${monthLabel(monat)}</h2><p>Gesamt ${euro(sum)}</p></div></div>${items.length?`<table class="table"><thead><tr><th>Datum</th><th>Start</th><th>Ziel</th><th>Zeit</th><th>Text</th><th>Betrag</th><th></th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.datum)}</td><td>${esc(x.startOrt||'')}</td><td>${esc(x.zielOrt||'')}</td><td>${esc((x.startZeit||'')+' - '+(x.endZeit||''))}</td><td>${esc(x.beschreibung||'')}</td><td>${euro(x.betrag||0)}</td><td><button class="btn-danger" onclick="deleteSpese('${x.id}')">X</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Keine Spesen in diesem Monat.</div>'}</div>`;
+  const html = `<div class="card"><div class="section-head"><div><h2>${monthLabel(monat)}</h2><p>Gesamt ${euro(sum)}</p></div></div>${items.length?`<table class="table"><thead><tr><th>Von</th><th>Bis</th><th>Route</th><th>Aufteilung</th><th>Betrag</th><th></th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.datum)}</td><td>${esc(x.endDatum||x.datum)}</td><td>${esc((x.startOrt||'')+(x.zielOrt?` → ${x.zielOrt}`:''))}</td><td>${esc((x.breakdown||[]).map(b=>`${b.datum} ${b.label} ${b.startOrt||'-'}→${b.zielOrt||'-'} ${(b.startZeit||'')}${(b.startZeit||b.endZeit)?' - ':''}${(b.endZeit||'')} ${euro(b.amount)}${b.bericht?' '+b.bericht:''}`).join(' | '))}</td><td>${euro(x.betrag||0)}</td><td><button class="btn-danger" onclick="deleteSpese('${x.id}')">X</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Keine Spesen in diesem Monat.</div>'}</div>`;
   document.getElementById('sList').innerHTML=html;
 }
 function deleteSpese(id){const i=state.spesen.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Spese löschen?')) return; state.spesen.splice(i,1); save(); renderSpesen(); renderDashboard();}
@@ -1086,14 +1286,14 @@ function printSpesenDay(date){
   openPrintDoc(title, body);
 }
 function printSpesenMonth(monat){
-  const items=state.spesen.filter(x=>x.monat===monat);
+  const items=state.spesen.filter(x=>x.monat===monat).sort((a,b)=>(a.datum||'').localeCompare(b.datum||''));
   const title=`Spesen ${monthLabel(monat)}`;
   const body=`<h1>${title}</h1><div class="sub">AS Technical Solution GmbH · Robert Kutschke</div>${renderSpesenPrintTable(items)}<div class="sum">Gesamt ${euro(items.reduce((a,b)=>a+Number(b.betrag||0),0))}</div>`;
   openPrintDoc(title, body);
 }
 function renderSpesenPrintTable(items){
   if(!items.length) return '<p>Keine Einträge vorhanden.</p>';
-  return `<table><thead><tr><th>Datum</th><th>Typ</th><th>Startort</th><th>Zielort</th><th>Zeit</th><th>Beschreibung</th><th>Betrag</th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.datum)}</td><td>${esc(x.typ)}</td><td>${esc(x.startOrt||'')}</td><td>${esc(x.zielOrt||'')}</td><td>${esc((x.startZeit||'')+' - '+(x.endZeit||''))}</td><td>${esc(x.beschreibung||'')}</td><td>${euro(x.betrag||0)}</td></tr>`).join('')}</tbody></table>`;
+  return `<table><thead><tr><th>Von</th><th>Bis</th><th>Typ</th><th>Startort</th><th>Zielort</th><th>Aufteilung</th><th>Betrag</th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.datum)}</td><td>${esc(x.endDatum||x.datum)}</td><td>${esc(x.typ)}</td><td>${esc(x.startOrt||'')}</td><td>${esc(x.zielOrt||'')}</td><td>${esc((x.breakdown||[]).map(b=>`${b.datum} ${b.label} ${b.startOrt||'-'}→${b.zielOrt||'-'} ${(b.startZeit||'')}${(b.startZeit||b.endZeit)?' - ':''}${(b.endZeit||'')} ${euro(b.amount)}${b.bericht?' '+b.bericht:''}`).join(' | '))}</td><td>${euro(x.betrag||0)}</td></tr>`).join('')}</tbody></table>`;
 }
 
 function buildWeeklySummary(items){
