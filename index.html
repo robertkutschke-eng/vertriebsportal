@@ -21,6 +21,17 @@ a{color:#8bc0ff}
 button,input,select,textarea{font:inherit}
 #app{min-height:100dvh;display:grid;grid-template-rows:var(--header-h) 1fr}
 header{position:sticky;top:0;z-index:20;height:var(--header-h);display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:rgba(10,19,32,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:779px){
+  :root{--header-h:auto}
+  header{height:auto;min-height:var(--header-h);padding:10px 12px;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .brand{width:100%}
+  .header-actions{width:100%;justify-content:flex-start;gap:6px}
+  .header-actions button{padding:9px 10px;font-size:12px}
+  #backupInfo{width:100%;font-size:11px}
+  main{padding-top:12px}
+}
+
 .brand{display:flex;align-items:center;gap:12px}
 .brand-badge{width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,var(--blue2),var(--blue));display:grid;place-items:center;font-weight:800}
 .brand-title{font-weight:800}.brand-sub{font-size:11px;color:var(--muted)}
@@ -122,7 +133,7 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
         <div class="brand-sub">AS Technical Solution GmbH</div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+    <div class="header-actions">
       <button class="btn-ghost" type="button" onclick="backupData()">Backup erstellen</button>
       <button class="btn-ghost" type="button" onclick="backupDataPC()">Backup am PC speichern</button>
       <button class="btn-ghost" type="button" onclick="document.getElementById('restoreFile').click()">Wiederherstellen</button>
