@@ -21,6 +21,17 @@ a{color:#8bc0ff}
 button,input,select,textarea{font:inherit}
 #app{min-height:100dvh;display:grid;grid-template-rows:var(--header-h) 1fr}
 header{position:sticky;top:0;z-index:20;height:var(--header-h);display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:rgba(10,19,32,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:779px){
+  :root{--header-h:auto}
+  header{height:auto;min-height:var(--header-h);padding:10px 12px;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .brand{width:100%}
+  .header-actions{width:100%;justify-content:flex-start;gap:6px}
+  .header-actions button{padding:9px 10px;font-size:12px}
+  #backupInfo{width:100%;font-size:11px}
+  main{padding-top:12px}
+}
+
 .brand{display:flex;align-items:center;gap:12px}
 .brand-badge{width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,var(--blue2),var(--blue));display:grid;place-items:center;font-weight:800}
 .brand-title{font-weight:800}.brand-sub{font-size:11px;color:var(--muted)}
@@ -110,6 +121,13 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
   .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .quick{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+.restore-modal{position:fixed;inset:0;background:rgba(3,8,15,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:80}
+.restore-modal.open{display:flex}
+.restore-card{width:min(560px,100%);background:linear-gradient(180deg,rgba(16,30,49,.99),rgba(12,24,40,.99));border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px}
+.restore-card h3{margin:0 0 10px;font-size:22px}
+.restore-box{background:#0a1320;border:1px solid var(--line);border-radius:14px;padding:12px;white-space:pre-wrap;color:#d9e8ff;font-size:13px}
+
 </style>
 </head>
 <body>
@@ -122,13 +140,23 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
         <div class="brand-sub">AS Technical Solution GmbH</div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+    <div class="header-actions">
       <button class="btn-ghost" type="button" onclick="backupData()">Backup erstellen</button>
       <button class="btn-ghost" type="button" onclick="backupDataPC()">Backup am PC speichern</button>
-      <button class="btn-ghost" type="button" onclick="document.getElementById('restoreFile').click()">Wiederherstellen</button>
+      <button class="btn-ghost" type="button" onclick="startRestoreSelect()">Wiederherstellen</button>
       <div class="small" id="backupInfo">Kein Backup erstellt</div>
     </div>
     <input id="restoreFile" type="file" accept="application/json" style="display:none" />
+    <div id="restoreModal" class="restore-modal">
+      <div class="restore-card">
+        <h3>Backup prüfen</h3>
+        <div id="restorePreview" class="restore-box">Keine Datei gewählt.</div>
+        <div class="row auto" style="margin-top:14px">
+          <button class="btn-primary" type="button" onclick="confirmRestore()">Jetzt wiederherstellen</button>
+          <button class="btn-secondary" type="button" onclick="closeRestoreModal()">Abbrechen</button>
+        </div>
+      </div>
+    </div>
   </header>
   <div class="layout">
     <aside>
@@ -1490,7 +1518,14 @@ function printWochenberichtWoche(){
 function openPrintDoc(title, body){
   const w=window.open('','_blank');
   if(!w) return alert('Pop-up blockiert');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px}h1{font-size:26px;margin:0 0 8px}h2{font-size:18px;margin:18px 0 8px}.sub{color:#444;margin-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #aaa;padding:8px;vertical-align:top;text-align:left;font-size:12px}th{background:#f2f2f2}.sum{margin-top:16px;font-size:18px;font-weight:700}.block{white-space:pre-wrap;border:1px solid #bbb;padding:10px;min-height:50px}.entry{margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid #ccc}@media print{body{padding:10mm}}</style></head><body>${body}<script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px}h1{font-size:26px;margin:0 0 8px}h2{font-size:18px;margin:18px 0 8px}.sub{color:#444;margin-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #aaa;padding:8px;vertical-align:top;text-align:left;font-size:12px}th{background:#f2f2f2}.sum{margin-top:16px;font-size:18px;font-weight:700}.block{white-space:pre-wrap;border:1px solid #bbb;padding:10px;min-height:50px}.entry{margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid #ccc}@media print{body{padding:10mm}}
+.restore-modal{position:fixed;inset:0;background:rgba(3,8,15,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:80}
+.restore-modal.open{display:flex}
+.restore-card{width:min(560px,100%);background:linear-gradient(180deg,rgba(16,30,49,.99),rgba(12,24,40,.99));border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px}
+.restore-card h3{margin:0 0 10px;font-size:22px}
+.restore-box{background:#0a1320;border:1px solid var(--line);border-radius:14px;padding:12px;white-space:pre-wrap;color:#d9e8ff;font-size:13px}
+
+</style></head><body>${body}<script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`);
   w.document.close();
 }
 
@@ -1569,6 +1604,44 @@ async function backupDataPC(){
   }
 }
 
+let pendingRestore = null;
+
+function startRestoreSelect(){
+  const input = document.getElementById('restoreFile');
+  if(input) input.click();
+}
+function createEmergencyBackupDownload(){
+  const payload = JSON.stringify(state, null, 2);
+  const stamp = new Date();
+  const name = `notfall-backup-vor-restore-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
+  const blob = new Blob([payload], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 300);
+}
+function closeRestoreModal(){
+  pendingRestore = null;
+  const modal = document.getElementById('restoreModal');
+  if(modal) modal.classList.remove('open');
+}
+function buildRestorePreview(data, fileName){
+  return [
+    `Datei: ${fileName}`,
+    '',
+    `Leads: ${data.leads.length}`,
+    `Anfragen: ${data.anfragen.length}`,
+    `Videos: ${data.videos.length}`,
+    `Maschinen: ${data.maschinenDocs.length}`,
+    `Spesen: ${data.spesen.length}`,
+    `Kalender: ${data.termine.length}`,
+    `Wochenberichte: ${data.wochenberichte.length}`,
+    '',
+    'Beim Wiederherstellen wird zuerst automatisch ein Notfall-Backup des aktuellen Standes erstellt.'
+  ].join('\n');
+}
 function restoreDataFromFile(ev){
   const file = ev.target.files && ev.target.files[0];
   if(!file) return;
@@ -1577,12 +1650,11 @@ function restoreDataFromFile(ev){
     try{
       const parsed = JSON.parse(fr.result);
       const normalized = normalizeState(parsed||{});
-      Object.keys(state).forEach(k=>delete state[k]);
-      Object.assign(state, normalized);
-      save();
-      renderAll();
-      updateBackupInfo();
-      alert('Backup erfolgreich wiederhergestellt.');
+      const preview = document.getElementById('restorePreview');
+      if(preview) preview.textContent = buildRestorePreview(normalized, file.name);
+      pendingRestore = normalized;
+      const modal = document.getElementById('restoreModal');
+      if(modal) modal.classList.add('open');
     }catch(e){
       alert('Backup-Datei konnte nicht gelesen werden.');
     }finally{
@@ -1590,6 +1662,21 @@ function restoreDataFromFile(ev){
     }
   };
   fr.readAsText(file);
+}
+function confirmRestore(){
+  if(!pendingRestore) return;
+  try{
+    createEmergencyBackupDownload();
+    Object.keys(state).forEach(k=>delete state[k]);
+    Object.assign(state, pendingRestore);
+    save();
+    renderAll();
+    updateBackupInfo();
+    closeRestoreModal();
+    alert('Backup erfolgreich wiederhergestellt.');
+  }catch(e){
+    alert('Wiederherstellung fehlgeschlagen.');
+  }
 }
 function updateBackupInfo(){
   const el = document.getElementById('backupInfo');
