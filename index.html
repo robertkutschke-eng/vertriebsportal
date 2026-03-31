@@ -7,57 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module">
-function backupData(){
-  try{
-    const payload = JSON.stringify(state, null, 2);
-    const stamp = new Date();
-    const name = `vertrieb-pro-backup-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
-    const blob = new Blob([payload], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 300);
-    localStorage.setItem(DBKEY+'_last_backup', new Date().toISOString());
-    updateBackupInfo();
-  }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
-}
-function restoreDataFromFile(ev){
-  const file = ev.target.files && ev.target.files[0];
-  if(!file) return;
-  const fr = new FileReader();
-  fr.onload = ()=>{
-    try{
-      const parsed = JSON.parse(fr.result);
-      const normalized = normalizeState(parsed||{});
-      Object.keys(state).forEach(k=>delete state[k]);
-      Object.assign(state, normalized);
-      save();
-      renderAll();
-      updateBackupInfo();
-      alert('Backup erfolgreich wiederhergestellt.');
-    }catch(e){
-      alert('Backup-Datei konnte nicht gelesen werden.');
-    }finally{
-      ev.target.value='';
-    }
-  };
-  fr.readAsText(file);
-}
-function updateBackupInfo(){
-  const el = document.getElementById('backupInfo');
-  if(!el) return;
-  const iso = localStorage.getItem(DBKEY+'_last_backup');
-  if(!iso){ el.textContent = 'Kein Backup erstellt'; return; }
-  try{
-    const d = new Date(iso);
-    el.textContent = 'Letztes Backup: ' + d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-  }catch(e){ el.textContent = 'Backup vorhanden'; }
-}
-
-</script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
 <style>
 :root{
   --bg:#07111d; --panel:#0d1828; --panel2:#122238; --line:#1f3654; --text:#eef5ff; --muted:#9bb0ce;
@@ -116,6 +66,34 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
 .warn{background:#3c2d0a;border:1px solid #6a4b0f;color:#ffdb90;border-radius:14px;padding:12px 14px;margin-bottom:12px}
 .ok{background:#103324;border:1px solid #1f6947;color:#9ef1c4;border-radius:14px;padding:12px 14px;margin-bottom:12px}
 .table{width:100%;border-collapse:collapse}.table th,.table td{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13px}.table th{color:var(--muted);font-size:12px;text-transform:uppercase}
+
+@media (max-width:640px){
+  header{padding:0 10px;height:52px}
+  #app{grid-template-rows:52px 1fr}
+  main{padding:10px;padding-bottom:calc(var(--bottom-h) + 12px)}
+  .hero{padding:14px 14px 12px;margin-bottom:12px}
+  .hero h1{font-size:22px}
+  .section-head{margin-bottom:10px;gap:8px}
+  .section-head h2{font-size:20px}
+  .card,.kpi,.item{padding:12px}
+  .kpi .value{font-size:24px}
+  .row{gap:8px}
+  .row>*{flex:1 1 100%}
+  .row-tight>*{flex:1 1 100%}
+  .toolbar>*{flex:1 1 100%}
+  input,select,textarea,button{font-size:16px}
+  textarea{min-height:82px}
+  .meta{gap:6px;font-size:12px}
+  nav.bottom{grid-template-columns:repeat(4,1fr);height:auto}
+  nav.bottom button{min-height:52px;font-size:10px}
+  .brand-badge{width:32px;height:32px;border-radius:10px}
+  .brand-title{font-size:15px}
+  .brand-sub{font-size:10px}
+  .pdftext{max-height:120px}
+  .table{display:block;overflow-x:auto;white-space:nowrap}
+  img,iframe,video{max-width:100%;height:auto}
+}
+
 @media (min-width:780px){
   .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -146,6 +124,7 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button class="btn-ghost" type="button" onclick="backupData()">Backup erstellen</button>
+      <button class="btn-ghost" type="button" onclick="backupDataPC()">Backup am PC speichern</button>
       <button class="btn-ghost" type="button" onclick="document.getElementById('restoreFile').click()">Wiederherstellen</button>
       <div class="small" id="backupInfo">Kein Backup erstellt</div>
     </div>
@@ -193,7 +172,7 @@ function normalizeState(s){
     wochenberichte:Array.isArray(s.wochenberichte)?s.wochenberichte:[],
     termine:Array.isArray(s.termine)?s.termine:[],
     kalenderFocus:s.kalenderFocus||null,
-    kalenderMonth:s.kalenderMonth || new Date().toISOString().slice(0,7),
+    kalenderMonth:s.kalenderMonth || formatMonthKey(new Date()),
     kalenderEditId:s.kalenderEditId||null,
     videoEditId:s.videoEditId||null,
     leadEditId:s.leadEditId||null,
@@ -740,22 +719,25 @@ function openCalendarForRecordById(prefix,id){
     notiz: rec.notiz || ''
   });
 }
+function formatMonthKey(date){
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+}
 function prevKalenderMonth(){
   const d = getKalenderMonthDate();
-  d.setMonth(d.getMonth()-1);
-  state.kalenderMonth = d.toISOString().slice(0,7);
+  d.setMonth(d.getMonth()-1, 1);
+  state.kalenderMonth = formatMonthKey(d);
   save();
   renderKalender();
 }
 function nextKalenderMonth(){
   const d = getKalenderMonthDate();
-  d.setMonth(d.getMonth()+1);
-  state.kalenderMonth = d.toISOString().slice(0,7);
+  d.setMonth(d.getMonth()+1, 1);
+  state.kalenderMonth = formatMonthKey(d);
   save();
   renderKalender();
 }
 function getKalenderMonthDate(){
-  const base = state.kalenderMonth || new Date().toISOString().slice(0,7);
+  const base = state.kalenderMonth || formatMonthKey(new Date());
   const [y,m] = base.split('-').map(Number);
   return new Date(y, (m||1)-1, 1);
 }
@@ -955,7 +937,7 @@ function collectCalendarItems(){
 function renderKalender(){
   const el=document.getElementById('kalender');
   const allItems = collectCalendarItems();
-  const monthKeyView = state.kalenderMonth || new Date().toISOString().slice(0,7);
+  const monthKeyView = state.kalenderMonth || formatMonthKey(new Date());
   const monthItems = allItems.filter(x=>String(x.datum||'').startsWith(monthKeyView));
   const focus = state.kalenderFocus;
   const grouped = {};
@@ -1562,6 +1544,31 @@ function backupData(){
     updateBackupInfo();
   }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
 }
+
+async function backupDataPC(){
+  try{
+    const payload = JSON.stringify(state, null, 2);
+    const stamp = new Date();
+    const name = `vertriebsapp-backup-pc-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(payload);
+      await writable.close();
+      localStorage.setItem(DBKEY+'_last_backup', new Date().toISOString());
+      updateBackupInfo();
+      return;
+    }
+    backupData();
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    backupData();
+  }
+}
+
 function restoreDataFromFile(ev){
   const file = ev.target.files && ev.target.files[0];
   if(!file) return;
