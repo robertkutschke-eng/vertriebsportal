@@ -7,7 +7,57 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module">
+function backupData(){
+  try{
+    const payload = JSON.stringify(state, null, 2);
+    const stamp = new Date();
+    const name = `vertrieb-pro-backup-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
+    const blob = new Blob([payload], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 300);
+    localStorage.setItem(DBKEY+'_last_backup', new Date().toISOString());
+    updateBackupInfo();
+  }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
+}
+function restoreDataFromFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  if(!file) return;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    try{
+      const parsed = JSON.parse(fr.result);
+      const normalized = normalizeState(parsed||{});
+      Object.keys(state).forEach(k=>delete state[k]);
+      Object.assign(state, normalized);
+      save();
+      renderAll();
+      updateBackupInfo();
+      alert('Backup erfolgreich wiederhergestellt.');
+    }catch(e){
+      alert('Backup-Datei konnte nicht gelesen werden.');
+    }finally{
+      ev.target.value='';
+    }
+  };
+  fr.readAsText(file);
+}
+function updateBackupInfo(){
+  const el = document.getElementById('backupInfo');
+  if(!el) return;
+  const iso = localStorage.getItem(DBKEY+'_last_backup');
+  if(!iso){ el.textContent = 'Kein Backup erstellt'; return; }
+  try{
+    const d = new Date(iso);
+    el.textContent = 'Letztes Backup: ' + d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){ el.textContent = 'Backup vorhanden'; }
+}
+
+</script>
 <style>
 :root{
   --bg:#07111d; --panel:#0d1828; --panel2:#122238; --line:#1f3654; --text:#eef5ff; --muted:#9bb0ce;
@@ -94,7 +144,12 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
         <div class="brand-sub">AS Technical Solution GmbH</div>
       </div>
     </div>
-    <div class="row auto" style="gap:8px;align-items:center;flex-wrap:nowrap"><button class="btn-ghost" id="backupBtn" style="padding:8px 12px">Backup</button><button class="btn-ghost" id="restoreBtn" style="padding:8px 12px">Wiederherstellen</button><input id="restoreInput" type="file" accept="application/json" style="display:none" /><div class="small">lokale Version · schnelle Eingabe</div></div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn-ghost" type="button" onclick="backupData()">Backup erstellen</button>
+      <button class="btn-ghost" type="button" onclick="document.getElementById('restoreFile').click()">Wiederherstellen</button>
+      <div class="small" id="backupInfo">Kein Backup erstellt</div>
+    </div>
+    <input id="restoreFile" type="file" accept="application/json" style="display:none" />
   </header>
   <div class="layout">
     <aside>
@@ -124,7 +179,7 @@ const state = normalizeState(load()||{});
 purgeTransientData();
 renderNav();
 renderAll();
-initBackupControls();
+updateBackupInfo();
 
 function normalizeState(s){
   return {
@@ -140,41 +195,16 @@ function normalizeState(s){
     kalenderFocus:s.kalenderFocus||null,
     kalenderMonth:s.kalenderMonth || new Date().toISOString().slice(0,7),
     kalenderEditId:s.kalenderEditId||null,
-    videoEditId:s.videoEditId||null
+    videoEditId:s.videoEditId||null,
+    leadEditId:s.leadEditId||null,
+    anfrageEditId:s.anfrageEditId||null,
+    maschineEditId:s.maschineEditId||null,
+    spesenEditId:s.spesenEditId||null,
+    wochenberichtEditId:s.wochenberichtEditId||null
   };
 }
 function load(){try{return JSON.parse(localStorage.getItem(DBKEY));}catch(e){return null}}
 function save(){localStorage.setItem(DBKEY, JSON.stringify(state));}
-function initBackupControls(){
-  const b=document.getElementById('backupBtn');
-  const r=document.getElementById('restoreBtn');
-  const i=document.getElementById('restoreInput');
-  if(b) b.onclick=exportBackup;
-  if(r) r.onclick=()=>i&&i.click();
-  if(i) i.onchange=importBackup;
-}
-function exportBackup(){
-  const data=JSON.stringify(state,null,2);
-  const blob=new Blob([data],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='vertrieb-pro-backup-'+localDateStr(new Date())+'.json';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-}
-function importBackup(ev){
-  const file=ev.target.files && ev.target.files[0];
-  if(!file) return;
-  const fr=new FileReader();
-  fr.onload=()=>{
-    try{
-      const incoming=JSON.parse(fr.result);
-      localStorage.setItem(DBKEY, JSON.stringify(normalizeState(incoming)));
-      location.reload();
-    }catch(e){ alert('Backup konnte nicht geladen werden.'); }
-  };
-  fr.readAsText(file);
-}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function monthKey(dateStr){ const d=new Date(dateStr); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function monthLabel(key){ const [y,m]=key.split('-'); return new Date(Number(y),Number(m)-1,1).toLocaleDateString('de-DE',{month:'long',year:'numeric'}); }
@@ -216,6 +246,7 @@ function showScreen(id){
   document.querySelectorAll('[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));
 }
 function renderAll(){renderDashboard();renderCRM('leads','Leads',state.leads);renderCRM('anfragen','Anfragen',state.anfragen);renderMaschinen();renderVideos();renderSpesen();renderKalender();renderWochenbericht();}
+document.getElementById('restoreFile').addEventListener('change', restoreDataFromFile);
 
 function badge(text,type='blue'){return `<span class="badge b-${type}">${esc(text)}</span>`}
 
@@ -253,6 +284,7 @@ function renderDashboard(){
   document.getElementById('dashboard').innerHTML=html;
 }
 
+
 function renderCRM(screenId,title,list){
   const el=document.getElementById(screenId);
   const isLead=screenId==='leads';
@@ -262,7 +294,7 @@ function renderCRM(screenId,title,list){
   const editId = isLead ? state.leadEditId : state.anfrageEditId;
   const edit = editId ? list.find(x=>x.id===editId) : null;
   el.innerHTML=`
-    <div class="section-head"><div><h2>${title}</h2><p>Knackig. Alles Wichtige auf einen Blick.</p></div></div>
+    <div class="section-head"><div><h2>${title}</h2><p>${isLead?'Leads kompakt pflegen und sauber nachfassen.':'Anfragen erfassen und weiterbearbeiten.'}</p></div></div>
     <div class="split">
       <div class="card">
         <div class="row">
@@ -280,8 +312,8 @@ function renderCRM(screenId,title,list){
         </div>
         <div class="row">
           <div><label>Status</label><select id="${prefix}Status"><option>Neu</option><option>Kontaktiert</option><option>Angebot</option><option>Nachfassen</option></select></div>
-          <div><label>Interesse</label><input id="${prefix}Interesse" placeholder="z. B. GRAEF" /></div>
-          <div><label>Bereich / Produkt</label><input id="${prefix}Produkt" placeholder="z. B. Aufschnittschneidmaschinen" /></div>
+          <div><label>Hersteller / Interesse</label><input id="${prefix}Interesse" placeholder="z. B. GRAEF" /></div>
+          <div><label>Maschine / Produkt</label><input id="${prefix}Produkt" placeholder="z. B. Aufschnittschneidmaschinen" /></div>
         </div>
         <div class="row">
           <div><label>Datum</label><input id="${prefix}Datum" type="date" /></div>
@@ -293,13 +325,11 @@ function renderCRM(screenId,title,list){
           <div><label>Erinnerung Datum</label><input id="${prefix}RemDate" type="date" /></div>
           <div><label>Erinnerung Uhrzeit</label><input id="${prefix}RemTime" type="time" /></div>
         </div>
-        <div style="display:none"><label>Automatische Kundenübersicht</label><textarea id="${prefix}Overview" readonly placeholder="Wird automatisch aus Text, PDF und Feldern aufgebaut."></textarea></div>
+        <div style="display:none"><textarea id="${prefix}Overview" readonly></textarea></div>
         <div><label>Bericht</label><textarea id="${prefix}Bericht" placeholder="Bericht / Gesprächsinhalt für ${singular}."></textarea></div>
         <div><label>Quelltext / Notiz</label><textarea id="${prefix}Notiz" placeholder="Text einfügen oder frei schreiben – die App zieht die Daten direkt in die Felder."></textarea></div>
-        
         <div style="margin-top:10px"><label>PDF-Dateien</label><input id="${prefix}Pdf" type="file" accept="application/pdf" multiple /></div>
-        
-        <div class="row auto"><button class="btn-secondary" id="${prefix}Parse">Text in Felder übernehmen</button><button class="btn-primary" id="${prefix}Save">${edit ? singular+' aktualisieren' : singular+' speichern'}</button>${edit ? `<button class="btn-ghost" id="${prefix}Cancel">Abbrechen</button>` : ``}</div>
+        <div class="row auto" style="margin-top:10px"><button class="btn-secondary" id="${prefix}Parse">Text in Felder übernehmen</button><button class="btn-primary" id="${prefix}Save">${edit ? singular+' aktualisieren' : singular+' speichern'}</button>${edit ? `<button class="btn-ghost" id="${prefix}Cancel">Abbrechen</button>` : ``}</div>
       </div>
       <div>
         <div class="toolbar"><input id="${prefix}Search" placeholder="${searchPlaceholder}" /></div>
@@ -345,6 +375,8 @@ function renderCRM(screenId,title,list){
     let pdfs = [];
     try{ pdfs = JSON.parse(document.getElementById(prefix+'Pdf').dataset.parsed || '[]'); }catch(e){ pdfs=[]; }
     if(!pdfs.length) pdfs = await readPdfFiles(document.getElementById(prefix+'Pdf').files);
+    // Erst Felder hart befüllen, dann speichern
+    applyParsedDataToForm(prefix, pdfs, true);
     const rawNotiz=val(prefix+'Notiz');
     const rawBericht=val(prefix+'Bericht');
     const mergedText=[rawNotiz, ...pdfs.map(p=>p.text||'')].filter(Boolean).join('\n');
@@ -365,7 +397,7 @@ function renderCRM(screenId,title,list){
     const angebotNr=val(prefix+'AngebotNr')||extracted.angebotNr||'';
     const reminderDate=val(prefix+'RemDate')||extracted.reminderDate||datum||'';
     const reminderTime=val(prefix+'RemTime')||extracted.reminderTime||uhrzeit||'';
-    const uebersicht=buildCustomerOverview({firma,kontakt,tel,mail,adresse,plz,ort,datum,uhrzeit,interesse,produkt,nextStep});
+    const uebersicht=buildCustomerOverview({firma,kontakt,tel,mail,adresse,plz,ort,datum,uhrzeit,interesse,produkt,nextStep,angebotNr});
     const payload = {
       id: edit?.id || uid(),
       firma, kontakt, tel, mail, status:val(prefix+'Status'),
@@ -413,29 +445,33 @@ function renderCRMList(prefix,list){
     return blob.toLowerCase().includes(q);
   });
   if(!filtered.length){container.innerHTML='<div class="empty">Keine Einträge gefunden.</div>';return;}
-  container.innerHTML=filtered.map(x=>`
+  const isLead = prefix==='lead';
+  container.innerHTML=filtered.map(x=>{
+    const fullAddress = [x.adresse, [x.plz,x.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const wa = waLink(x.tel);
+    return `
     <div class="item">
-      <div class="section-head" style="margin-bottom:10px">
-        <div>
-          <h4>${esc(x.kontakt || '')}</h4>
-          <div class="meta"><span>${esc(x.firma||'')}</span></div>
-        </div>
-        <div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div>
-      </div>
-      ${x.tel?`<div class="small" style="margin-top:4px"><strong>Telefon:</strong> ${esc(x.tel)}</div>`:''}
-      ${x.tel?`<div class="row auto" style="margin-top:8px"><button class="btn-success" onclick="window.open('https://wa.me/${String(x.tel||'').replace(/\D/g,'')}','_blank')">WhatsApp</button></div>`:''}
-      ${x.adresse||x.plz||x.ort?`<div class="small" style="margin-top:6px"><strong>Adresse:</strong> ${esc([x.adresse,[x.plz,x.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</div>`:''}
-      ${x.mail?`<div class="small" style="margin-top:6px"><strong>E-Mail:</strong> ${esc(x.mail)}</div>`:''}
-      ${(x.interesse||x.produkt)?`<div class="small" style="margin-top:6px"><strong>Maschine:</strong> ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
-      ${x.angebotNr?`<div class="small" style="margin-top:6px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
-      ${x.nextStep?`<div class="small" style="margin-top:6px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
+      <div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.kontakt||x.firma||'')}</h4><div class="meta"><span>${esc(x.firma||'')}</span>${x.status?`<span>${esc(x.status)}</span>`:''}</div></div><div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div></div>
+      ${x.tel?`<div class="small"><strong>Telefon:</strong> ${esc(x.tel)}</div>`:''}
+      ${x.mail?`<div class="small" style="margin-top:4px"><strong>E-Mail:</strong> ${esc(x.mail)}</div>`:''}
+      ${fullAddress?`<div class="small" style="margin-top:4px"><strong>Adresse:</strong> ${esc(fullAddress)}</div>`:''}
+      ${[x.interesse,x.produkt].filter(Boolean).length?`<div class="small" style="margin-top:4px"><strong>Maschine:</strong> ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
+      ${x.angebotNr?`<div class="small" style="margin-top:4px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
+      ${x.nextStep?`<div class="small" style="margin-top:4px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
+      ${(x.reminderDate||x.reminderTime)?`<div class="small" style="margin-top:4px"><strong>Termin:</strong> ${esc(x.reminderDate||x.datum||'')}${(x.reminderTime||x.uhrzeit)?` · ${esc(x.reminderTime||x.uhrzeit)}`:''}</div>`:''}
       <div class="row auto" style="margin-top:10px">
+        ${wa?`<button class="btn-success" onclick="window.open('${wa}','_blank')">WhatsApp</button>`:''}
+        ${(x.reminderDate || x.datum) ? `<button class="btn-success" onclick="openCalendarForRecordById('${prefix}','${x.id}')">Im Kalender</button>`:''}
         <button class="btn-secondary" onclick="editCRM('${prefix}','${x.id}')">Bearbeiten</button>
         ${prefix==='anfrage' ? `<button class="btn-secondary" onclick="convertAnfrageToLead('${x.id}')">Als Lead übernehmen</button>` : ''}
+        ${!isLead ? `<button class="btn-ghost" onclick="toggleCRMDetails(this)">Mehr</button>` : ''}
         <button class="btn-danger" onclick="deleteCRM('${prefix}','${x.id}')">Löschen</button>
       </div>
-    </div>`).join('');
+      ${!isLead ? `<div class="crm-extra" style="display:none;margin-top:10px">${x.notiz?`<div style="white-space:pre-wrap">${esc(x.notiz)}</div>`:''}${renderPdfList(x.pdfs||[])}</div>`:''}
+    </div>`;
+  }).join('');
 }
+function toggleCRMDetails(btn){ const box = btn.parentElement.nextElementSibling; if(box) box.style.display = box.style.display==='none'?'block':'none'; }
 function convertAnfrageToLead(id){
   const i=state.anfragen.findIndex(x=>x.id===id);
   if(i<0) return;
@@ -460,7 +496,7 @@ function convertAnfrageToLead(id){
     reminderDate:anfrage.reminderDate||anfrage.datum||'',
     reminderTime:anfrage.reminderTime||anfrage.uhrzeit||'',
     uebersicht:anfrage.uebersicht||buildCustomerOverview(anfrage),
-    notiz:((anfrage.notiz||'') ? 'Aus Anfrage generiert\n\n'+anfrage.notiz : 'Aus Anfrage generiert'),
+    notiz:anfrage.notiz||'',
     pdfs:Array.isArray(anfrage.pdfs) ? JSON.parse(JSON.stringify(anfrage.pdfs)) : [],
     erstellt:new Date().toISOString()
   };
@@ -469,19 +505,6 @@ function convertAnfrageToLead(id){
   save();
   renderAll();
   showScreen('leads');
-  if(lead.reminderDate){
-    openCalendarForRecord({
-      titel:`Lead: ${lead.firma}`,
-      firma: lead.firma,
-      kontakt: lead.kontakt,
-      ort: lead.ort,
-      datum: lead.reminderDate,
-      uhrzeit: lead.reminderTime,
-      nextStep: lead.nextStep,
-      angebotNr: lead.angebotNr,
-      notiz: lead.notiz
-    });
-  }
 }
 function deleteCRM(prefix,id){
   const list=prefix==='lead'?state.leads:state.anfragen;
@@ -498,7 +521,14 @@ function cancelCRMEdit(prefix){
   save();
   renderCRM(prefix==='lead'?'leads':'anfragen', prefix==='lead'?'Leads':'Anfragen', prefix==='lead'?state.leads:state.anfragen);
 }
-
+function waLink(phone){
+  const num = String(phone||'').replace(/\D/g,'');
+  if(!num) return '';
+  let out = num;
+  if(out.startsWith('00')) out = out.slice(2);
+  else if(out.startsWith('0')) out = '49'+out.slice(1);
+  return 'https://wa.me/'+out;
+}
 function normalizeLines(text){
   return (text||'').replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
 }
@@ -1026,6 +1056,7 @@ function renderMaschinen(){
 
   const el=document.getElementById('maschinen');
   const options=state.hersteller.map(h=>`<option>${esc(h)}</option>`).join('');
+  const edit = state.maschineEditId ? state.maschinenDocs.find(x=>x.id===state.maschineEditId) : null;
   el.innerHTML=`
     <div class="section-head"><div><h2>Maschinen</h2><p>Hersteller, Preislisten und Unterlagen manuell pflegen und durchsuchen.</p></div></div>
     <div class="split">
@@ -1037,15 +1068,15 @@ function renderMaschinen(){
         <div class="card">
           <div class="row">
             <div><label>Hersteller</label><select id="mHersteller">${options}</select></div>
-            <div><label>Titel</label><input id="mTitel" placeholder="z. B. Preisliste Masterline" /></div>
+            <div><label>Titel</label><input id="mTitel" placeholder="z. B. Preisliste Masterline" value="${esc(edit?.titel||'')}" /></div>
           </div>
           <div class="row">
             <div><label>Dokumentart</label><select id="mTyp"><option>Maschine</option><option>Preisliste</option><option>Anleitung</option><option>Unterlage</option></select></div>
-            <div><label>Preis / Hinweis</label><input id="mPreis" placeholder="z. B. 12.500 €" /></div>
+            <div><label>Preis / Hinweis</label><input id="mPreis" placeholder="z. B. 12.500 €" value="${esc(edit?.preis||'')}" /></div>
           </div>
-          <div><label>Link (optional)</label><input id="mLink" placeholder="https://..." /></div>
-          <div><label>Inhalt / Beschreibung</label><textarea id="mInhalt" placeholder="Hier trägst du Maschineninfo, Preisliste, Daten oder Hinweise manuell ein."></textarea></div>
-          <div class="row auto" style="margin-top:10px"><button class="btn-primary" id="mSave">Eintrag speichern</button></div>
+          <div><label>Link (optional)</label><input id="mLink" placeholder="https://..." value="${esc(edit?.link||'')}" /></div>
+          <div><label>Inhalt / Beschreibung</label><textarea id="mInhalt" placeholder="Hier trägst du Maschineninfo, Preisliste, Daten oder Hinweise manuell ein.">${esc(edit?.inhalt||'')}</textarea></div>
+          <div class="row auto" style="margin-top:10px"><button class="btn-primary" id="mSave">${edit?'Eintrag aktualisieren':'Eintrag speichern'}</button>${edit?'<button class="btn-ghost" id="mCancel">Abbrechen</button>':''}</div>
         </div>
       </div>
       <div>
@@ -1054,11 +1085,22 @@ function renderMaschinen(){
       </div>
     </div>`;
   document.getElementById('herstellerSave').onclick=()=>{const h=val('herstellerNeu').trim(); if(!h) return; if(!state.hersteller.includes(h)) state.hersteller.push(h); save(); renderMaschinen();};
+  if(edit){
+    const selH=document.getElementById('mHersteller'); if(selH) selH.value = edit.hersteller || '';
+    const selT=document.getElementById('mTyp'); if(selT) selT.value = edit.typ || 'Maschine';
+  }
   document.getElementById('mSave').onclick=()=>{
     const hersteller=val('mHersteller'); const titel=val('mTitel'); if(!hersteller||!titel) return alert('Hersteller und Titel fehlen');
-    state.maschinenDocs.unshift({id:uid(),hersteller,titel,typ:val('mTyp'),preis:val('mPreis'),link:val('mLink'),inhalt:val('mInhalt'),erstellt:new Date().toISOString()});
+    const payload={id: edit?.id || uid(),hersteller,titel,typ:val('mTyp'),preis:val('mPreis'),link:val('mLink'),inhalt:val('mInhalt'),erstellt:edit?.erstellt||new Date().toISOString()};
+    if(edit){
+      const i=state.maschinenDocs.findIndex(x=>x.id===edit.id); if(i>=0) state.maschinenDocs[i]=payload;
+      state.maschineEditId=null;
+    } else {
+      state.maschinenDocs.unshift(payload);
+    }
     save(); renderMaschinen(); renderDashboard();
   };
+  if(document.getElementById('mCancel')) document.getElementById('mCancel').onclick=()=>{state.maschineEditId=null; save(); renderMaschinen();};
   document.getElementById('mSearch').oninput=renderMaschinenList;
   renderMaschinenList();
 }
@@ -1067,9 +1109,10 @@ function renderMaschinenList(){
   const filtered=state.maschinenDocs.filter(x=>[x.hersteller,x.titel,x.typ,x.preis,x.link,x.inhalt].join(' ').toLowerCase().includes(q));
   const el=document.getElementById('mList');
   if(!filtered.length){el.innerHTML='<div class="empty">Keine Maschinenunterlagen gefunden.</div>';return;}
-  el.innerHTML=filtered.map(x=>`<div class="item"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel)}</h4><div class="meta"><span>${esc(x.hersteller)}</span><span>${esc(x.typ)}</span><span>${esc(x.preis||'')}</span></div></div><div>${badge(x.hersteller,'violet')}</div></div>${x.link?`<div><a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.link)}</a></div>`:''}${x.inhalt?`<div class="pdftext" style="display:block;max-height:none;margin-top:8px">${esc(x.inhalt)}</div>`:''}<div class="row auto" style="margin-top:10px">${x.link?`<button class="btn-secondary" onclick="window.open('${jsQuote(x.link)}','_blank')">Öffnen</button>`:''}<button class="btn-danger" onclick="deleteMachine('${x.id}')">Löschen</button></div></div>`).join('');
+  el.innerHTML=filtered.map(x=>`<div class="item"><div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.titel)}</h4><div class="meta"><span>${esc(x.hersteller)}</span><span>${esc(x.typ)}</span><span>${esc(x.preis||'')}</span></div></div><div>${badge(x.hersteller,'violet')}</div></div>${x.link?`<div><a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.link)}</a></div>`:''}${x.inhalt?`<div class="pdftext" style="display:block;max-height:none;margin-top:8px">${esc(x.inhalt)}</div>`:''}<div class="row auto" style="margin-top:10px">${x.link?`<button class="btn-secondary" onclick="window.open('${jsQuote(x.link)}','_blank')">Öffnen</button>`:''}<button class="btn-secondary" onclick="editMachine('${x.id}')">Bearbeiten</button><button class="btn-danger" onclick="deleteMachine('${x.id}')">Löschen</button></div></div>`).join('');
 }
-function deleteMachine(id){const i=state.maschinenDocs.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Dokument löschen?')) return; state.maschinenDocs.splice(i,1); save(); renderMaschinen(); renderDashboard();}
+function editMachine(id){state.maschineEditId=id; save(); renderMaschinen();}
+function deleteMachine(id){const i=state.maschinenDocs.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Dokument löschen?')) return; state.maschinenDocs.splice(i,1); if(state.maschineEditId===id) state.maschineEditId=null; save(); renderMaschinen(); renderDashboard();}
 
 function renderVideos(){
   const el=document.getElementById('videos');
@@ -1234,7 +1277,8 @@ function renderTripRows(){
 }
 function renderSpesen(){
   const el=document.getElementById('spesen');
-  const today=localDateStr(new Date());
+  const edit = state.spesenEditId ? state.spesen.find(x=>x.id===state.spesenEditId) : null;
+  const today=edit?.datum || localDateStr(new Date());
   const months=[0,1,2].map(i=>{const d=new Date(); d.setMonth(d.getMonth()-i,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const monthOptions=months.map(k=>`<option value="${k}">${monthLabel(k)}</option>`).join('');
   el.innerHTML=`
@@ -1243,9 +1287,9 @@ function renderSpesen(){
       <div>
         <div class="card">
           <div class="row row-tight"><div><label>Typ</label><select id="sTyp"><option>Mehrtagesreise</option><option>Tagesspesen</option><option>Fahrt</option><option>Sonstiges</option></select></div><div><label>Hotel / Übernachtung</label><select id="sHotel"><option value="ja">Ja</option><option value="nein">Nein</option></select></div></div>
-          <div class="row row-tight"><div><label>Startdatum</label><input id="sDatum" type="date" value="${today}" /></div><div><label>Enddatum</label><input id="sEndDatum" type="date" value="${today}" /></div><div><label>Reisetage</label><input id="sTage" readonly /></div></div>
-          <div class="row row-tight"><div><label>Startort 1. Tag</label><input id="sStartOrt" /></div><div><label>Endort letzter Tag</label><input id="sZielOrt" /></div></div>
-          <div class="row auto" style="align-items:end"><div style="flex:1 1 180px"><label>Gesamtbetrag</label><input id="sBetrag" readonly /></div><button class="btn-secondary" id="sBuildTrip">Reisetage aufbauen</button><button class="btn-primary" id="sSave">Reise speichern</button></div>
+          <div class="row row-tight"><div><label>Startdatum</label><input id="sDatum" type="date" value="${today}" /></div><div><label>Enddatum</label><input id="sEndDatum" type="date" value="${edit?.endDatum || today}" /></div><div><label>Reisetage</label><input id="sTage" readonly /></div></div>
+          <div class="row row-tight"><div><label>Startort 1. Tag</label><input id="sStartOrt" value="${esc(edit?.startOrt||'')}" /></div><div><label>Endort letzter Tag</label><input id="sZielOrt" value="${esc(edit?.zielOrt||'')}" /></div></div>
+          <div class="row auto" style="align-items:end"><div style="flex:1 1 180px"><label>Gesamtbetrag</label><input id="sBetrag" readonly /></div><button class="btn-secondary" id="sBuildTrip">Reisetage aufbauen</button><button class="btn-primary" id="sSave">${edit?'Reise aktualisieren':'Reise speichern'}</button>${edit?'<button class="btn-ghost" id="sCancel">Abbrechen</button>':''}</div>
         </div>
         <div class="card"><div id="sTripRows" class="list"></div></div>
         <div class="card"><div class="row"><div style="flex:1 1 320px"><label>Aufteilung</label><textarea id="sBreakdown" readonly style="min-height:220px"></textarea></div></div></div>
@@ -1263,7 +1307,21 @@ function renderSpesen(){
   const rebuildTrip=()=>renderTripRows();
   ['sDatum','sEndDatum','sHotel','sStartOrt','sZielOrt'].forEach(id=>document.getElementById(id).oninput=rebuildTrip);
   document.getElementById('sBuildTrip').onclick=renderTripRows;
+  const selTyp=document.getElementById('sTyp'); if(selTyp) selTyp.value = edit?.typ || 'Mehrtagesreise';
+  const selHotel=document.getElementById('sHotel'); if(selHotel) selHotel.value = edit?.hotel ? 'ja' : 'nein';
   renderTripRows();
+  if(edit?.breakdown?.length){
+    [...document.querySelectorAll('[data-trip-row]')].forEach((row, idx)=>{
+      const src = edit.breakdown[idx];
+      if(!src) return;
+      row.querySelector('[data-field="startOrt"]').value = src.startOrt || '';
+      row.querySelector('[data-field="zielOrt"]').value = src.zielOrt || '';
+      row.querySelector('[data-field="startZeit"]').value = src.startZeit || '';
+      row.querySelector('[data-field="endZeit"]').value = src.endZeit || '';
+      row.querySelector('[data-field="bericht"]').value = src.bericht || '';
+    });
+    updateTripOverview();
+  }
   document.getElementById('sSave').onclick=()=>{
     const datum=val('sDatum');
     const endDatum=val('sEndDatum') || datum;
@@ -1273,8 +1331,8 @@ function renderSpesen(){
     if(!rows.length) return alert('Bitte Reisetage aufbauen.');
     if(rows.some(r=>!r.startOrt || !r.zielOrt || !r.bericht)) return alert('Bitte jeden Tag komplett ausfüllen: von wo, nach wo und Bericht.');
     const total = rows.reduce((sum,row)=>sum+Number(row.amount||0),0);
-    state.spesen.unshift({
-      id:uid(),
+    const payload = {
+      id: edit?.id || uid(),
       monat:monthKey(datum),
       datum,
       endDatum,
@@ -1286,7 +1344,13 @@ function renderSpesen(){
       beschreibung:rows.map(r=>`${r.datum}: ${r.bericht}`).join('\n'),
       betrag:total,
       breakdown:rows
-    });
+    };
+    if(edit){
+      const i=state.spesen.findIndex(x=>x.id===edit.id); if(i>=0) state.spesen[i]=payload;
+      state.spesenEditId=null;
+    } else {
+      state.spesen.unshift(payload);
+    }
     purgeTransientData(); save(); renderSpesen(); renderDashboard();
   };
   document.getElementById('sMonatPdfSave').onclick=async()=>{
@@ -1297,6 +1361,7 @@ function renderSpesen(){
   document.getElementById('sMonatFilter').onchange=renderSpesenList;
   document.getElementById('sPrintMonth').onclick=()=>printSpesenMonth(val('sMonatFilter'));
   document.getElementById('sPrintDay').onclick=()=>printSpesenDay(val('sDatum'));
+  if(document.getElementById('sCancel')) document.getElementById('sCancel').onclick=()=>{state.spesenEditId=null; save(); renderSpesen();};
   renderSpesenList(); renderSpesenMonatDocs();
 }
 function renderSpesenMonatDocs(){
@@ -1310,10 +1375,11 @@ function deleteSpesenMonatPdf(bucketId,index){const bucket=state.spesenMonatsdoc
 function renderSpesenList(){
   const monat=val('sMonatFilter'); const items=state.spesen.filter(x=>x.monat===monat).sort((a,b)=>(a.datum||'').localeCompare(b.datum||''));
   const sum=items.reduce((a,b)=>a+Number(b.betrag||0),0);
-  const html = `<div class="card"><div class="section-head"><div><h2>${monthLabel(monat)}</h2><p>Gesamt ${euro(sum)}</p></div></div>${items.length?`<table class="table"><thead><tr><th>Von</th><th>Bis</th><th>Route</th><th>Aufteilung</th><th>Betrag</th><th></th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.datum)}</td><td>${esc(x.endDatum||x.datum)}</td><td>${esc((x.startOrt||'')+(x.zielOrt?` → ${x.zielOrt}`:''))}</td><td>${esc((x.breakdown||[]).map(b=>`${b.datum} ${b.label} ${b.startOrt||'-'}→${b.zielOrt||'-'} ${(b.startZeit||'')}${(b.startZeit||b.endZeit)?' - ':''}${(b.endZeit||'')} ${euro(b.amount)}${b.bericht?' '+b.bericht:''}`).join(' | '))}</td><td>${euro(x.betrag||0)}</td><td><button class="btn-danger" onclick="deleteSpese('${x.id}')">X</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Keine Spesen in diesem Monat.</div>'}</div>`;
+  const html = `<div class="card"><div class="section-head"><div><h2>${monthLabel(monat)}</h2><p>Gesamt ${euro(sum)}</p></div></div>${items.length?`<table class="table"><thead><tr><th>Von</th><th>Bis</th><th>Route</th><th>Aufteilung</th><th>Betrag</th><th></th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.datum)}</td><td>${esc(x.endDatum||x.datum)}</td><td>${esc((x.startOrt||'')+(x.zielOrt?` → ${x.zielOrt}`:''))}</td><td>${esc((x.breakdown||[]).map(b=>`${b.datum} ${b.label} ${b.startOrt||'-'}→${b.zielOrt||'-'} ${(b.startZeit||'')}${(b.startZeit||b.endZeit)?' - ':''}${(b.endZeit||'')} ${euro(b.amount)}${b.bericht?' '+b.bericht:''}`).join(' | '))}</td><td>${euro(x.betrag||0)}</td><td><button class="btn-secondary" onclick="editSpese('${x.id}')">Bearbeiten</button><button class="btn-danger" onclick="deleteSpese('${x.id}')">X</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Keine Spesen in diesem Monat.</div>'}</div>`;
   document.getElementById('sList').innerHTML=html;
 }
-function deleteSpese(id){const i=state.spesen.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Spese löschen?')) return; state.spesen.splice(i,1); save(); renderSpesen(); renderDashboard();}
+function editSpese(id){state.spesenEditId=id; save(); renderSpesen();}
+function deleteSpese(id){const i=state.spesen.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Spese löschen?')) return; state.spesen.splice(i,1); if(state.spesenEditId===id) state.spesenEditId=null; save(); renderSpesen(); renderDashboard();}
 function printSpesenDay(date){
   const items=state.spesen.filter(x=>x.datum===date);
   const title=`Spesen ${date}`;
@@ -1348,25 +1414,26 @@ function renderWochenbericht(){
   const el=document.getElementById('wochenbericht');
   const items=state.wochenberichte.filter(x=>x.kw===currentWeekKey).sort((a,b)=>a.datum.localeCompare(b.datum));
   const weeklySummary = buildWeeklySummary(items);
-  const today=new Date().toISOString().slice(0,10);
+  const edit = state.wochenberichtEditId ? items.find(x=>x.id===state.wochenberichtEditId) : null;
+  const today=edit?.datum || new Date().toISOString().slice(0,10);
   el.innerHTML=`
     <div class="section-head"><div><h2>Wochenbericht</h2><p>${currentWeekKey} · nur aktuelle Woche gespeichert</p></div></div>
     <div class="split">
       <div>
         <div class="card">
           <div class="row row-tight"><div><label>KW</label><input value="${currentWeekKey}" readonly /></div><div><label>Datum</label><input id="wbDatum" type="date" value="${today}" /></div></div>
-          <div class="row"><div><label>Firma / Kunde</label><input id="wbFirma" /></div><div><label>Ort</label><input id="wbOrt" /></div></div>
-          <div class="row"><div><label>Ansprechpartner</label><input id="wbKontakt" /></div><div><label>Thema</label><input id="wbThema" /></div></div>
-          <div><label>Tagesbericht / Gespräch</label><textarea id="wbText"></textarea></div>
-          <div><label>Nächste Schritte</label><textarea id="wbNext"></textarea></div>
-          <div class="row auto"><button class="btn-primary" id="wbSave">Eintrag speichern</button><button class="btn-secondary" id="wbSaveAnfrage">Als Anfrage speichern</button><button class="btn-success" id="wbSaveBoth">Beides speichern</button><button class="btn-secondary" id="wbPrintDay">Tagesbericht drucken</button><button class="btn-success" id="wbPrintWeek">Wochenbericht PDF</button></div>
+          <div class="row"><div><label>Firma / Kunde</label><input id="wbFirma" value="${esc(edit?.firma||'')}" /></div><div><label>Ort</label><input id="wbOrt" value="${esc(edit?.ort||'')}" /></div></div>
+          <div class="row"><div><label>Ansprechpartner</label><input id="wbKontakt" value="${esc(edit?.kontakt||'')}" /></div><div><label>Thema</label><input id="wbThema" value="${esc(edit?.thema||'')}" /></div></div>
+          <div><label>Tagesbericht / Gespräch</label><textarea id="wbText">${esc(edit?.text||'')}</textarea></div>
+          <div><label>Nächste Schritte</label><textarea id="wbNext">${esc(edit?.next||'')}</textarea></div>
+          <div class="row auto"><button class="btn-primary" id="wbSave">${edit?'Eintrag aktualisieren':'Eintrag speichern'}</button><button class="btn-secondary" id="wbSaveAnfrage">Als Anfrage speichern</button><button class="btn-success" id="wbSaveBoth">Beides speichern</button><button class="btn-secondary" id="wbPrintDay">Tagesbericht drucken</button><button class="btn-success" id="wbPrintWeek">Wochenbericht PDF</button>${edit?'<button class="btn-ghost" id="wbCancel">Abbrechen</button>':''}</div>
           <div class="small" style="margin-top:10px">Wenn die Woche vorbei ist, bleibt nichts aus alten Wochen gespeichert.</div>
         </div>
       </div>
       <div>
         <div class="card">
           <div class="section-head"><div><h2>Einträge ${currentWeekKey}</h2><p>${items.length} gespeichert</p></div></div>
-          <div id="wbList">${items.length?items.map(x=>`<div class="item"><h4>${esc(x.datum)} · ${esc(x.firma)}</h4><div class="meta"><span>${esc(x.ort||'')}</span><span>${esc(x.kontakt||'')}</span><span>${esc(x.thema||'')}</span></div><div>${esc(x.text||'')}</div>${x.next?`<hr class="soft"><div><strong>Nächste Schritte:</strong><br>${esc(x.next)}</div>`:''}<div class="row auto" style="margin-top:10px"><button class="btn-secondary" onclick="printWochenberichtTag('${x.id}')">Drucken</button><button class="btn-danger" onclick="deleteWochenbericht('${x.id}')">Löschen</button></div></div>`).join(''):'<div class="empty">Noch kein Wochenbericht erfasst.</div>'}</div>
+          <div id="wbList">${items.length?items.map(x=>`<div class="item"><h4>${esc(x.datum)} · ${esc(x.firma)}</h4><div class="meta"><span>${esc(x.ort||'')}</span><span>${esc(x.kontakt||'')}</span><span>${esc(x.thema||'')}</span></div><div>${esc(x.text||'')}</div>${x.next?`<hr class="soft"><div><strong>Nächste Schritte:</strong><br>${esc(x.next)}</div>`:''}<div class="row auto" style="margin-top:10px"><button class="btn-secondary" onclick="editWochenbericht('${x.id}')">Bearbeiten</button><button class="btn-secondary" onclick="printWochenberichtTag('${x.id}')">Drucken</button><button class="btn-danger" onclick="deleteWochenbericht('${x.id}')">Löschen</button></div></div>`).join(''):'<div class="empty">Noch kein Wochenbericht erfasst.</div>'}</div>
         </div>
         <div class="card">
           <div class="section-head"><div><h2>Wochen-Gesamtbericht</h2><p>Automatisch aus allen Einträgen der Woche zusammengeführt.</p></div></div>
@@ -1377,11 +1444,11 @@ function renderWochenbericht(){
   function wbPayload(){
     const firma=val('wbFirma').trim();
     if(!firma){ alert('Firma fehlt'); return null; }
-    return {id:uid(),kw:currentWeekKey,datum:val('wbDatum'),firma,ort:val('wbOrt'),kontakt:val('wbKontakt'),thema:val('wbThema'),text:val('wbText'),next:val('wbNext')};
+    return {id:edit?.id || uid(),kw:currentWeekKey,datum:val('wbDatum'),firma,ort:val('wbOrt'),kontakt:val('wbKontakt'),thema:val('wbThema'),text:val('wbText'),next:val('wbNext')};
   }
   function saveWbOnly(){
     const rec=wbPayload(); if(!rec) return;
-    state.wochenberichte.push(rec);
+    if(edit){ const i=state.wochenberichte.findIndex(x=>x.id===edit.id); if(i>=0) state.wochenberichte[i]=rec; state.wochenberichtEditId=null; } else { state.wochenberichte.push(rec); }
     purgeTransientData(); save(); renderWochenbericht(); renderDashboard();
   }
   function saveWbAsAnfrage(alsoWeek){
@@ -1421,8 +1488,10 @@ function renderWochenbericht(){
     printWochenberichtRecord(tmp);
   };
   document.getElementById('wbPrintWeek').onclick=()=>printWochenberichtWoche();
+  if(document.getElementById('wbCancel')) document.getElementById('wbCancel').onclick=()=>{state.wochenberichtEditId=null; save(); renderWochenbericht();};
 }
-function deleteWochenbericht(id){const i=state.wochenberichte.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Eintrag löschen?')) return; state.wochenberichte.splice(i,1); save(); renderWochenbericht(); renderDashboard();}
+function editWochenbericht(id){state.wochenberichtEditId=id; save(); renderWochenbericht();}
+function deleteWochenbericht(id){const i=state.wochenberichte.findIndex(x=>x.id===id); if(i<0) return; if(!confirm('Eintrag löschen?')) return; state.wochenberichte.splice(i,1); if(state.wochenberichtEditId===id) state.wochenberichtEditId=null; save(); renderWochenbericht(); renderDashboard();}
 function printWochenberichtTag(id){const rec=state.wochenberichte.find(x=>x.id===id); if(rec) printWochenberichtRecord(rec);}
 function printWochenberichtRecord(rec){
   const title=`Tagesbericht ${rec.datum}`;
@@ -1476,6 +1545,56 @@ async function extractPdfText(file){
   }
   return full.replace(/\s+/g,' ').trim();
 }
+
+function backupData(){
+  try{
+    const payload = JSON.stringify(state, null, 2);
+    const stamp = new Date();
+    const name = `vertrieb-pro-backup-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
+    const blob = new Blob([payload], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 300);
+    localStorage.setItem(DBKEY+'_last_backup', new Date().toISOString());
+    updateBackupInfo();
+  }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
+}
+function restoreDataFromFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  if(!file) return;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    try{
+      const parsed = JSON.parse(fr.result);
+      const normalized = normalizeState(parsed||{});
+      Object.keys(state).forEach(k=>delete state[k]);
+      Object.assign(state, normalized);
+      save();
+      renderAll();
+      updateBackupInfo();
+      alert('Backup erfolgreich wiederhergestellt.');
+    }catch(e){
+      alert('Backup-Datei konnte nicht gelesen werden.');
+    }finally{
+      ev.target.value='';
+    }
+  };
+  fr.readAsText(file);
+}
+function updateBackupInfo(){
+  const el = document.getElementById('backupInfo');
+  if(!el) return;
+  const iso = localStorage.getItem(DBKEY+'_last_backup');
+  if(!iso){ el.textContent = 'Kein Backup erstellt'; return; }
+  try{
+    const d = new Date(iso);
+    el.textContent = 'Letztes Backup: ' + d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){ el.textContent = 'Backup vorhanden'; }
+}
+
 </script>
 </body>
 </html>
