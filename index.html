@@ -7,7 +7,57 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module">
+function backupData(){
+  try{
+    const payload = JSON.stringify(state, null, 2);
+    const stamp = new Date();
+    const name = `vertrieb-pro-backup-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
+    const blob = new Blob([payload], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 300);
+    localStorage.setItem(DBKEY+'_last_backup', new Date().toISOString());
+    updateBackupInfo();
+  }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
+}
+function restoreDataFromFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  if(!file) return;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    try{
+      const parsed = JSON.parse(fr.result);
+      const normalized = normalizeState(parsed||{});
+      Object.keys(state).forEach(k=>delete state[k]);
+      Object.assign(state, normalized);
+      save();
+      renderAll();
+      updateBackupInfo();
+      alert('Backup erfolgreich wiederhergestellt.');
+    }catch(e){
+      alert('Backup-Datei konnte nicht gelesen werden.');
+    }finally{
+      ev.target.value='';
+    }
+  };
+  fr.readAsText(file);
+}
+function updateBackupInfo(){
+  const el = document.getElementById('backupInfo');
+  if(!el) return;
+  const iso = localStorage.getItem(DBKEY+'_last_backup');
+  if(!iso){ el.textContent = 'Kein Backup erstellt'; return; }
+  try{
+    const d = new Date(iso);
+    el.textContent = 'Letztes Backup: ' + d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){ el.textContent = 'Backup vorhanden'; }
+}
+
+</script>
 <style>
 :root{
   --bg:#07111d; --panel:#0d1828; --panel2:#122238; --line:#1f3654; --text:#eef5ff; --muted:#9bb0ce;
@@ -21,17 +71,6 @@ a{color:#8bc0ff}
 button,input,select,textarea{font:inherit}
 #app{min-height:100dvh;display:grid;grid-template-rows:var(--header-h) 1fr}
 header{position:sticky;top:0;z-index:20;height:var(--header-h);display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:rgba(10,19,32,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
-.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-@media (max-width:779px){
-  :root{--header-h:auto}
-  header{height:auto;min-height:var(--header-h);padding:10px 12px;align-items:flex-start;gap:10px;flex-wrap:wrap}
-  .brand{width:100%}
-  .header-actions{width:100%;justify-content:flex-start;gap:6px}
-  .header-actions button{padding:9px 10px;font-size:12px}
-  #backupInfo{width:100%;font-size:11px}
-  main{padding-top:12px}
-}
-
 .brand{display:flex;align-items:center;gap:12px}
 .brand-badge{width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,var(--blue2),var(--blue));display:grid;place-items:center;font-weight:800}
 .brand-title{font-weight:800}.brand-sub{font-size:11px;color:var(--muted)}
@@ -77,34 +116,6 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
 .warn{background:#3c2d0a;border:1px solid #6a4b0f;color:#ffdb90;border-radius:14px;padding:12px 14px;margin-bottom:12px}
 .ok{background:#103324;border:1px solid #1f6947;color:#9ef1c4;border-radius:14px;padding:12px 14px;margin-bottom:12px}
 .table{width:100%;border-collapse:collapse}.table th,.table td{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13px}.table th{color:var(--muted);font-size:12px;text-transform:uppercase}
-
-@media (max-width:640px){
-  header{padding:0 10px;height:52px}
-  #app{grid-template-rows:52px 1fr}
-  main{padding:10px;padding-bottom:calc(var(--bottom-h) + 12px)}
-  .hero{padding:14px 14px 12px;margin-bottom:12px}
-  .hero h1{font-size:22px}
-  .section-head{margin-bottom:10px;gap:8px}
-  .section-head h2{font-size:20px}
-  .card,.kpi,.item{padding:12px}
-  .kpi .value{font-size:24px}
-  .row{gap:8px}
-  .row>*{flex:1 1 100%}
-  .row-tight>*{flex:1 1 100%}
-  .toolbar>*{flex:1 1 100%}
-  input,select,textarea,button{font-size:16px}
-  textarea{min-height:82px}
-  .meta{gap:6px;font-size:12px}
-  nav.bottom{grid-template-columns:repeat(4,1fr);height:auto}
-  nav.bottom button{min-height:52px;font-size:10px}
-  .brand-badge{width:32px;height:32px;border-radius:10px}
-  .brand-title{font-size:15px}
-  .brand-sub{font-size:10px}
-  .pdftext{max-height:120px}
-  .table{display:block;overflow-x:auto;white-space:nowrap}
-  img,iframe,video{max-width:100%;height:auto}
-}
-
 @media (min-width:780px){
   .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -121,13 +132,6 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
   .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .quick{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
-
-.restore-modal{position:fixed;inset:0;background:rgba(3,8,15,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:80}
-.restore-modal.open{display:flex}
-.restore-card{width:min(560px,100%);background:linear-gradient(180deg,rgba(16,30,49,.99),rgba(12,24,40,.99));border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px}
-.restore-card h3{margin:0 0 10px;font-size:22px}
-.restore-box{background:#0a1320;border:1px solid var(--line);border-radius:14px;padding:12px;white-space:pre-wrap;color:#d9e8ff;font-size:13px}
-
 </style>
 </head>
 <body>
@@ -140,23 +144,12 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
         <div class="brand-sub">AS Technical Solution GmbH</div>
       </div>
     </div>
-    <div class="header-actions">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button class="btn-ghost" type="button" onclick="backupData()">Backup erstellen</button>
-      <button class="btn-ghost" type="button" onclick="backupDataPC()">Backup am PC speichern</button>
-      <button class="btn-ghost" type="button" onclick="startRestoreSelect()">Wiederherstellen</button>
+      <button class="btn-ghost" type="button" onclick="document.getElementById('restoreFile').click()">Wiederherstellen</button>
       <div class="small" id="backupInfo">Kein Backup erstellt</div>
     </div>
     <input id="restoreFile" type="file" accept="application/json" style="display:none" />
-    <div id="restoreModal" class="restore-modal">
-      <div class="restore-card">
-        <h3>Backup prüfen</h3>
-        <div id="restorePreview" class="restore-box">Keine Datei gewählt.</div>
-        <div class="row auto" style="margin-top:14px">
-          <button class="btn-primary" type="button" onclick="confirmRestore()">Jetzt wiederherstellen</button>
-          <button class="btn-secondary" type="button" onclick="closeRestoreModal()">Abbrechen</button>
-        </div>
-      </div>
-    </div>
   </header>
   <div class="layout">
     <aside>
@@ -200,9 +193,11 @@ function normalizeState(s){
     wochenberichte:Array.isArray(s.wochenberichte)?s.wochenberichte:[],
     termine:Array.isArray(s.termine)?s.termine:[],
     kalenderFocus:s.kalenderFocus||null,
-    kalenderMonth:s.kalenderMonth || formatMonthKey(new Date()),
+    kalenderMonth:s.kalenderMonth || new Date().toISOString().slice(0,7),
     kalenderEditId:s.kalenderEditId||null,
     videoEditId:s.videoEditId||null,
+    leadEditId:s.leadEditId||null,
+    anfrageEditId:s.anfrageEditId||null,
     leadEditId:s.leadEditId||null,
     anfrageEditId:s.anfrageEditId||null,
     maschineEditId:s.maschineEditId||null,
@@ -291,7 +286,6 @@ function renderDashboard(){
   document.getElementById('dashboard').innerHTML=html;
 }
 
-
 function renderCRM(screenId,title,list){
   const el=document.getElementById(screenId);
   const isLead=screenId==='leads';
@@ -301,7 +295,7 @@ function renderCRM(screenId,title,list){
   const editId = isLead ? state.leadEditId : state.anfrageEditId;
   const edit = editId ? list.find(x=>x.id===editId) : null;
   el.innerHTML=`
-    <div class="section-head"><div><h2>${title}</h2><p>${isLead?'Leads kompakt pflegen und sauber nachfassen.':'Anfragen erfassen und weiterbearbeiten.'}</p></div></div>
+    <div class="section-head"><div><h2>${title}</h2><p>Kunden mit PDFs, Suchfunktion, automatischer Texterkennung und internem Kalender.</p></div></div>
     <div class="split">
       <div class="card">
         <div class="row">
@@ -319,8 +313,8 @@ function renderCRM(screenId,title,list){
         </div>
         <div class="row">
           <div><label>Status</label><select id="${prefix}Status"><option>Neu</option><option>Kontaktiert</option><option>Angebot</option><option>Nachfassen</option></select></div>
-          <div><label>Hersteller / Interesse</label><input id="${prefix}Interesse" placeholder="z. B. GRAEF" /></div>
-          <div><label>Maschine / Produkt</label><input id="${prefix}Produkt" placeholder="z. B. Aufschnittschneidmaschinen" /></div>
+          <div><label>Interesse</label><input id="${prefix}Interesse" placeholder="z. B. GRAEF" /></div>
+          <div><label>Bereich / Produkt</label><input id="${prefix}Produkt" placeholder="z. B. Aufschnittschneidmaschinen" /></div>
         </div>
         <div class="row">
           <div><label>Datum</label><input id="${prefix}Datum" type="date" /></div>
@@ -332,11 +326,13 @@ function renderCRM(screenId,title,list){
           <div><label>Erinnerung Datum</label><input id="${prefix}RemDate" type="date" /></div>
           <div><label>Erinnerung Uhrzeit</label><input id="${prefix}RemTime" type="time" /></div>
         </div>
-        <div style="display:none"><textarea id="${prefix}Overview" readonly></textarea></div>
+        <div><label>Automatische Kundenübersicht</label><textarea id="${prefix}Overview" readonly placeholder="Wird automatisch aus Text, PDF und Feldern aufgebaut."></textarea></div>
         <div><label>Bericht</label><textarea id="${prefix}Bericht" placeholder="Bericht / Gesprächsinhalt für ${singular}."></textarea></div>
         <div><label>Quelltext / Notiz</label><textarea id="${prefix}Notiz" placeholder="Text einfügen oder frei schreiben – die App zieht die Daten direkt in die Felder."></textarea></div>
+        <div class="small" style="margin:8px 0 0">AS Technical Solution wird bei der Erkennung ignoriert. Datum, Uhrzeit, Interesse, Produkt und nächster Schritt werden wenn möglich direkt aus dem Text übernommen.</div>
         <div style="margin-top:10px"><label>PDF-Dateien</label><input id="${prefix}Pdf" type="file" accept="application/pdf" multiple /></div>
-        <div class="row auto" style="margin-top:10px"><button class="btn-secondary" id="${prefix}Parse">Text in Felder übernehmen</button><button class="btn-primary" id="${prefix}Save">${edit ? singular+' aktualisieren' : singular+' speichern'}</button>${edit ? `<button class="btn-ghost" id="${prefix}Cancel">Abbrechen</button>` : ``}</div>
+        <div class="small" style="margin:8px 0 10px">PDF-Inhalt wird bei normalen Text-PDFs gelesen und in Felder und Suche übernommen.</div>
+        <div class="row auto"><button class="btn-secondary" id="${prefix}Parse">Text in Felder übernehmen</button><button class="btn-primary" id="${prefix}Save">${edit ? singular+' aktualisieren' : singular+' speichern'}</button>${edit ? `<button class="btn-ghost" id="${prefix}Cancel">Abbrechen</button>` : ``}</div>
       </div>
       <div>
         <div class="toolbar"><input id="${prefix}Search" placeholder="${searchPlaceholder}" /></div>
@@ -382,8 +378,6 @@ function renderCRM(screenId,title,list){
     let pdfs = [];
     try{ pdfs = JSON.parse(document.getElementById(prefix+'Pdf').dataset.parsed || '[]'); }catch(e){ pdfs=[]; }
     if(!pdfs.length) pdfs = await readPdfFiles(document.getElementById(prefix+'Pdf').files);
-    // Erst Felder hart befüllen, dann speichern
-    applyParsedDataToForm(prefix, pdfs, true);
     const rawNotiz=val(prefix+'Notiz');
     const rawBericht=val(prefix+'Bericht');
     const mergedText=[rawNotiz, ...pdfs.map(p=>p.text||'')].filter(Boolean).join('\n');
@@ -404,7 +398,7 @@ function renderCRM(screenId,title,list){
     const angebotNr=val(prefix+'AngebotNr')||extracted.angebotNr||'';
     const reminderDate=val(prefix+'RemDate')||extracted.reminderDate||datum||'';
     const reminderTime=val(prefix+'RemTime')||extracted.reminderTime||uhrzeit||'';
-    const uebersicht=buildCustomerOverview({firma,kontakt,tel,mail,adresse,plz,ort,datum,uhrzeit,interesse,produkt,nextStep,angebotNr});
+    const uebersicht=buildCustomerOverview({firma,kontakt,tel,mail,adresse,plz,ort,datum,uhrzeit,interesse,produkt,nextStep});
     const payload = {
       id: edit?.id || uid(),
       firma, kontakt, tel, mail, status:val(prefix+'Status'),
@@ -444,6 +438,15 @@ function renderCRM(screenId,title,list){
   };
   renderCRMList(prefix,list);
 }
+function formatFullAddress(x){
+  return [x.adresse, [x.plz, x.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+}
+function whatsappHref(tel){
+  const digits=String(tel||'').replace(/[^\d]/g,'');
+  if(!digits) return '';
+  const normalized = digits.startsWith('00') ? digits.slice(2) : (digits.startsWith('0') ? '49'+digits.slice(1) : digits);
+  return 'https://wa.me/'+normalized;
+}
 function renderCRMList(prefix,list){
   const q=strip(val(prefix+'Search'));
   const container=document.getElementById(prefix+'List');
@@ -452,33 +455,46 @@ function renderCRMList(prefix,list){
     return blob.toLowerCase().includes(q);
   });
   if(!filtered.length){container.innerHTML='<div class="empty">Keine Einträge gefunden.</div>';return;}
-  const isLead = prefix==='lead';
   container.innerHTML=filtered.map(x=>{
-    const fullAddress = [x.adresse, [x.plz,x.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-    const wa = waLink(x.tel);
+    const address = formatFullAddress(x);
+    const wa = whatsappHref(x.tel);
+    if(prefix==='lead') return `
+      <div class="item">
+        <div class="section-head" style="margin-bottom:10px"><div><h4>${esc(x.firma||'-')}</h4><div class="meta"><span>${esc(x.kontakt||'')}</span></div></div><div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div></div>
+        ${x.kontakt?`<div class="small"><strong>Ansprechpartner:</strong> ${esc(x.kontakt)}</div>`:''}
+        ${x.tel?`<div class="small" style="margin-top:4px"><strong>Telefon:</strong> ${esc(x.tel)}</div>`:''}
+        ${address?`<div class="small" style="margin-top:4px"><strong>Anschrift:</strong> ${esc(address)}</div>`:''}
+        ${x.mail?`<div class="small" style="margin-top:4px"><strong>E-Mail:</strong> ${esc(x.mail)}</div>`:''}
+        ${x.produkt||x.interesse?`<div class="small" style="margin-top:4px"><strong>Maschine:</strong> ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
+        ${x.nextStep?`<div class="small" style="margin-top:4px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
+        ${x.angebotNr?`<div class="small" style="margin-top:4px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
+        <div class="row auto" style="margin-top:10px">
+          ${x.tel?`<button class="btn-success" onclick="window.open('${wa}','_blank')">WhatsApp</button>`:''}
+          ${(x.reminderDate || x.datum) ? `<button class="btn-success" onclick="openCalendarForRecordById('${prefix}','${x.id}')">Im Kalender</button>`:''}
+          <button class="btn-secondary" onclick="editCRM('${prefix}','${x.id}')">Bearbeiten</button>
+          <button class="btn-danger" onclick="deleteCRM('${prefix}','${x.id}')">Löschen</button>
+        </div>
+      </div>`;
     return `
-    <div class="item">
-      <div class="section-head" style="margin-bottom:8px"><div><h4>${esc(x.kontakt||x.firma||'')}</h4><div class="meta"><span>${esc(x.firma||'')}</span>${x.status?`<span>${esc(x.status)}</span>`:''}</div></div><div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div></div>
-      ${x.tel?`<div class="small"><strong>Telefon:</strong> ${esc(x.tel)}</div>`:''}
-      ${x.mail?`<div class="small" style="margin-top:4px"><strong>E-Mail:</strong> ${esc(x.mail)}</div>`:''}
-      ${fullAddress?`<div class="small" style="margin-top:4px"><strong>Adresse:</strong> ${esc(fullAddress)}</div>`:''}
-      ${[x.interesse,x.produkt].filter(Boolean).length?`<div class="small" style="margin-top:4px"><strong>Maschine:</strong> ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
-      ${x.angebotNr?`<div class="small" style="margin-top:4px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
-      ${x.nextStep?`<div class="small" style="margin-top:4px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
-      ${(x.reminderDate||x.reminderTime)?`<div class="small" style="margin-top:4px"><strong>Termin:</strong> ${esc(x.reminderDate||x.datum||'')}${(x.reminderTime||x.uhrzeit)?` · ${esc(x.reminderTime||x.uhrzeit)}`:''}</div>`:''}
-      <div class="row auto" style="margin-top:10px">
-        ${wa?`<button class="btn-success" onclick="window.open('${wa}','_blank')">WhatsApp</button>`:''}
-        ${(x.reminderDate || x.datum) ? `<button class="btn-success" onclick="openCalendarForRecordById('${prefix}','${x.id}')">Im Kalender</button>`:''}
-        <button class="btn-secondary" onclick="editCRM('${prefix}','${x.id}')">Bearbeiten</button>
-        ${prefix==='anfrage' ? `<button class="btn-secondary" onclick="convertAnfrageToLead('${x.id}')">Als Lead übernehmen</button>` : ''}
-        ${!isLead ? `<button class="btn-ghost" onclick="toggleCRMDetails(this)">Mehr</button>` : ''}
-        <button class="btn-danger" onclick="deleteCRM('${prefix}','${x.id}')">Löschen</button>
-      </div>
-      ${!isLead ? `<div class="crm-extra" style="display:none;margin-top:10px">${x.notiz?`<div style="white-space:pre-wrap">${esc(x.notiz)}</div>`:''}${renderPdfList(x.pdfs||[])}</div>`:''}
-    </div>`;
+      <div class="item">
+        <div class="section-head" style="margin-bottom:10px"><div><h4>${esc(x.firma)}</h4><div class="meta"><span>${esc(x.kontakt||'')}</span><span>${esc(x.tel||'')}</span><span>${esc(x.mail||'')}</span></div></div><div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div></div>
+        ${x.uebersicht?`<div class="block" style="margin-top:8px;white-space:pre-wrap">${esc(x.uebersicht)}</div>`:''}
+        ${(x.datum||x.uhrzeit)?`<div class="small" style="margin-top:8px">Termin: ${esc(x.datum||'')}${x.uhrzeit?` · ${esc(x.uhrzeit)}`:''}</div>`:''}
+        ${(x.interesse||x.produkt)?`<div class="small" style="margin-top:4px">Interesse: ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
+        ${x.nextStep?`<div class="small" style="margin-top:4px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
+        ${x.angebotNr?`<div class="small" style="margin-top:4px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
+        ${(x.reminderDate||x.reminderTime)?`<div class="small" style="margin-top:4px"><strong>Erinnerung:</strong> ${esc(x.reminderDate||'')}${x.reminderTime?` · ${esc(x.reminderTime)}`:''}</div>`:''}
+        ${x.notiz?`<div style="margin-top:8px;white-space:pre-wrap">${esc(x.notiz)}</div>`:''}
+        ${renderPdfList(x.pdfs||[])}
+        <div class="row auto" style="margin-top:10px">
+          ${(x.reminderDate || x.datum) ? `<button class="btn-success" onclick="openCalendarForRecordById('${prefix}','${x.id}')">Im Kalender</button>`:''}
+          <button class="btn-secondary" onclick="editCRM('${prefix}','${x.id}')">Bearbeiten</button>
+          ${prefix==='anfrage' ? `<button class="btn-secondary" onclick="convertAnfrageToLead('${x.id}')">Als Lead übernehmen</button>` : ''}
+          <button class="btn-danger" onclick="deleteCRM('${prefix}','${x.id}')">Löschen</button>
+        </div>
+      </div>`;
   }).join('');
 }
-function toggleCRMDetails(btn){ const box = btn.parentElement.nextElementSibling; if(box) box.style.display = box.style.display==='none'?'block':'none'; }
 function convertAnfrageToLead(id){
   const i=state.anfragen.findIndex(x=>x.id===id);
   if(i<0) return;
@@ -503,7 +519,7 @@ function convertAnfrageToLead(id){
     reminderDate:anfrage.reminderDate||anfrage.datum||'',
     reminderTime:anfrage.reminderTime||anfrage.uhrzeit||'',
     uebersicht:anfrage.uebersicht||buildCustomerOverview(anfrage),
-    notiz:anfrage.notiz||'',
+    notiz:((anfrage.notiz||'') ? 'Aus Anfrage generiert\n\n'+anfrage.notiz : 'Aus Anfrage generiert'),
     pdfs:Array.isArray(anfrage.pdfs) ? JSON.parse(JSON.stringify(anfrage.pdfs)) : [],
     erstellt:new Date().toISOString()
   };
@@ -512,6 +528,19 @@ function convertAnfrageToLead(id){
   save();
   renderAll();
   showScreen('leads');
+  if(lead.reminderDate){
+    openCalendarForRecord({
+      titel:`Lead: ${lead.firma}`,
+      firma: lead.firma,
+      kontakt: lead.kontakt,
+      ort: lead.ort,
+      datum: lead.reminderDate,
+      uhrzeit: lead.reminderTime,
+      nextStep: lead.nextStep,
+      angebotNr: lead.angebotNr,
+      notiz: lead.notiz
+    });
+  }
 }
 function deleteCRM(prefix,id){
   const list=prefix==='lead'?state.leads:state.anfragen;
@@ -528,14 +557,7 @@ function cancelCRMEdit(prefix){
   save();
   renderCRM(prefix==='lead'?'leads':'anfragen', prefix==='lead'?'Leads':'Anfragen', prefix==='lead'?state.leads:state.anfragen);
 }
-function waLink(phone){
-  const num = String(phone||'').replace(/\D/g,'');
-  if(!num) return '';
-  let out = num;
-  if(out.startsWith('00')) out = out.slice(2);
-  else if(out.startsWith('0')) out = '49'+out.slice(1);
-  return 'https://wa.me/'+out;
-}
+
 function normalizeLines(text){
   return (text||'').replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
 }
@@ -747,25 +769,22 @@ function openCalendarForRecordById(prefix,id){
     notiz: rec.notiz || ''
   });
 }
-function formatMonthKey(date){
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
-}
 function prevKalenderMonth(){
   const d = getKalenderMonthDate();
-  d.setMonth(d.getMonth()-1, 1);
-  state.kalenderMonth = formatMonthKey(d);
+  d.setMonth(d.getMonth()-1);
+  state.kalenderMonth = d.toISOString().slice(0,7);
   save();
   renderKalender();
 }
 function nextKalenderMonth(){
   const d = getKalenderMonthDate();
-  d.setMonth(d.getMonth()+1, 1);
-  state.kalenderMonth = formatMonthKey(d);
+  d.setMonth(d.getMonth()+1);
+  state.kalenderMonth = d.toISOString().slice(0,7);
   save();
   renderKalender();
 }
 function getKalenderMonthDate(){
-  const base = state.kalenderMonth || formatMonthKey(new Date());
+  const base = state.kalenderMonth || new Date().toISOString().slice(0,7);
   const [y,m] = base.split('-').map(Number);
   return new Date(y, (m||1)-1, 1);
 }
@@ -965,7 +984,7 @@ function collectCalendarItems(){
 function renderKalender(){
   const el=document.getElementById('kalender');
   const allItems = collectCalendarItems();
-  const monthKeyView = state.kalenderMonth || formatMonthKey(new Date());
+  const monthKeyView = state.kalenderMonth || new Date().toISOString().slice(0,7);
   const monthItems = allItems.filter(x=>String(x.datum||'').startsWith(monthKeyView));
   const focus = state.kalenderFocus;
   const grouped = {};
@@ -1518,14 +1537,7 @@ function printWochenberichtWoche(){
 function openPrintDoc(title, body){
   const w=window.open('','_blank');
   if(!w) return alert('Pop-up blockiert');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px}h1{font-size:26px;margin:0 0 8px}h2{font-size:18px;margin:18px 0 8px}.sub{color:#444;margin-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #aaa;padding:8px;vertical-align:top;text-align:left;font-size:12px}th{background:#f2f2f2}.sum{margin-top:16px;font-size:18px;font-weight:700}.block{white-space:pre-wrap;border:1px solid #bbb;padding:10px;min-height:50px}.entry{margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid #ccc}@media print{body{padding:10mm}}
-.restore-modal{position:fixed;inset:0;background:rgba(3,8,15,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:80}
-.restore-modal.open{display:flex}
-.restore-card{width:min(560px,100%);background:linear-gradient(180deg,rgba(16,30,49,.99),rgba(12,24,40,.99));border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px}
-.restore-card h3{margin:0 0 10px;font-size:22px}
-.restore-box{background:#0a1320;border:1px solid var(--line);border-radius:14px;padding:12px;white-space:pre-wrap;color:#d9e8ff;font-size:13px}
-
-</style></head><body>${body}<script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px}h1{font-size:26px;margin:0 0 8px}h2{font-size:18px;margin:18px 0 8px}.sub{color:#444;margin-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #aaa;padding:8px;vertical-align:top;text-align:left;font-size:12px}th{background:#f2f2f2}.sum{margin-top:16px;font-size:18px;font-weight:700}.block{white-space:pre-wrap;border:1px solid #bbb;padding:10px;min-height:50px}.entry{margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid #ccc}@media print{body{padding:10mm}}</style></head><body>${body}<script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`);
   w.document.close();
 }
 
@@ -1579,69 +1591,6 @@ function backupData(){
     updateBackupInfo();
   }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
 }
-
-async function backupDataPC(){
-  try{
-    const payload = JSON.stringify(state, null, 2);
-    const stamp = new Date();
-    const name = `vertriebsapp-backup-pc-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
-    if (window.showSaveFilePicker) {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: name,
-        types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(payload);
-      await writable.close();
-      localStorage.setItem(DBKEY+'_last_backup', new Date().toISOString());
-      updateBackupInfo();
-      return;
-    }
-    backupData();
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;
-    backupData();
-  }
-}
-
-let pendingRestore = null;
-
-function startRestoreSelect(){
-  const input = document.getElementById('restoreFile');
-  if(input) input.click();
-}
-function createEmergencyBackupDownload(){
-  const payload = JSON.stringify(state, null, 2);
-  const stamp = new Date();
-  const name = `notfall-backup-vor-restore-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
-  const blob = new Blob([payload], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 300);
-}
-function closeRestoreModal(){
-  pendingRestore = null;
-  const modal = document.getElementById('restoreModal');
-  if(modal) modal.classList.remove('open');
-}
-function buildRestorePreview(data, fileName){
-  return [
-    `Datei: ${fileName}`,
-    '',
-    `Leads: ${data.leads.length}`,
-    `Anfragen: ${data.anfragen.length}`,
-    `Videos: ${data.videos.length}`,
-    `Maschinen: ${data.maschinenDocs.length}`,
-    `Spesen: ${data.spesen.length}`,
-    `Kalender: ${data.termine.length}`,
-    `Wochenberichte: ${data.wochenberichte.length}`,
-    '',
-    'Beim Wiederherstellen wird zuerst automatisch ein Notfall-Backup des aktuellen Standes erstellt.'
-  ].join('\n');
-}
 function restoreDataFromFile(ev){
   const file = ev.target.files && ev.target.files[0];
   if(!file) return;
@@ -1650,11 +1599,12 @@ function restoreDataFromFile(ev){
     try{
       const parsed = JSON.parse(fr.result);
       const normalized = normalizeState(parsed||{});
-      const preview = document.getElementById('restorePreview');
-      if(preview) preview.textContent = buildRestorePreview(normalized, file.name);
-      pendingRestore = normalized;
-      const modal = document.getElementById('restoreModal');
-      if(modal) modal.classList.add('open');
+      Object.keys(state).forEach(k=>delete state[k]);
+      Object.assign(state, normalized);
+      save();
+      renderAll();
+      updateBackupInfo();
+      alert('Backup erfolgreich wiederhergestellt.');
     }catch(e){
       alert('Backup-Datei konnte nicht gelesen werden.');
     }finally{
@@ -1662,21 +1612,6 @@ function restoreDataFromFile(ev){
     }
   };
   fr.readAsText(file);
-}
-function confirmRestore(){
-  if(!pendingRestore) return;
-  try{
-    createEmergencyBackupDownload();
-    Object.keys(state).forEach(k=>delete state[k]);
-    Object.assign(state, pendingRestore);
-    save();
-    renderAll();
-    updateBackupInfo();
-    closeRestoreModal();
-    alert('Backup erfolgreich wiederhergestellt.');
-  }catch(e){
-    alert('Wiederherstellung fehlgeschlagen.');
-  }
 }
 function updateBackupInfo(){
   const el = document.getElementById('backupInfo');
