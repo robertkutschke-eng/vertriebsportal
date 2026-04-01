@@ -42,6 +42,7 @@ nav.bottom button{text-align:center;font-size:11px;padding:8px 4px}
 .row{display:flex;flex-wrap:wrap;gap:10px}.row>*{flex:1 1 190px}.row-tight>*{flex:1 1 140px}
 label{display:block;margin:0 0 6px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.45px}
 input,select,textarea{width:100%;padding:12px 13px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+input[type="file"]{padding:10px;background:#0f1b2c}
 textarea{min-height:92px;resize:vertical}
 button{border:0;border-radius:14px;padding:11px 16px;font-weight:800;cursor:pointer}
 .btn-primary{background:linear-gradient(135deg,var(--blue2),var(--blue));color:#fff}
@@ -1570,16 +1571,7 @@ async function backupData(){
     alert('Backup konnte nicht erstellt werden.');
   }
 }
-function pickRestoreFile(){
-  const input = document.getElementById('restoreFile');
-  if(!input) return;
-  input.removeAttribute('capture');
-  if (typeof input.showPicker === 'function') {
-    input.showPicker().catch(()=>input.click());
-  } else {
-    input.click();
-  }
-}
+
 function handleRestoreFilePicked(ev){
   const file = ev.target.files && ev.target.files[0];
   const nameEl = document.getElementById('restoreFileName');
