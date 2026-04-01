@@ -95,7 +95,7 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-      <button class="btn-ghost" type="button" onclick="backupData()">Backup erstellen</button>
+      <button class="btn-ghost" type="button" onclick="backupData()">Backup speichern</button>
       <button class="btn-ghost" type="button" onclick="pickRestoreFile()">Backup-Datei wählen</button>
       <button class="btn-ghost" type="button" id="restoreConfirmBtn" onclick="confirmRestoreFromSelected()" disabled>Jetzt wiederherstellen</button>
       <div class="small" id="backupInfo">Kein Backup erstellt</div>
@@ -1539,21 +1539,36 @@ async function extractPdfText(file){
   return full.replace(/\s+/g,' ').trim();
 }
 
-function backupData(){
+async function backupData(){
   try{
     const payload = JSON.stringify(state, null, 2);
     const stamp = new Date();
     const name = `vertrieb-pro-backup-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
     const blob = new Blob([payload], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 300);
+    const file = new File([blob], name, {type:'application/json'});
+    const isTouchDevice = /Android|iPhone|iPad|Tablet/i.test(navigator.userAgent || '') || navigator.maxTouchPoints > 1;
+
+    if (isTouchDevice && navigator.canShare && navigator.canShare({ files:[file] })) {
+      await navigator.share({
+        files:[file],
+        title:'Vertrieb Pro Backup',
+        text:'Backup-Datei speichern'
+      });
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    }
+
     localStorage.setItem(DBKEY+'_last_backup', new Date().toISOString());
     updateBackupInfo();
-  }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
+  }catch(e){
+    if (String(e && e.name) === 'AbortError') return;
+    alert('Backup konnte nicht erstellt werden.');
+  }
 }
 function pickRestoreFile(){
   const input = document.getElementById('restoreFile');
