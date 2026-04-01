@@ -7,57 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module">
-function backupData(){
-  try{
-    const payload = JSON.stringify(state, null, 2);
-    const stamp = new Date();
-    const name = `vertrieb-pro-backup-${stamp.getFullYear()}-${String(stamp.getMonth()+1).padStart(2,'0')}-${String(stamp.getDate()).padStart(2,'0')}_${String(stamp.getHours()).padStart(2,'0')}-${String(stamp.getMinutes()).padStart(2,'0')}.json`;
-    const blob = new Blob([payload], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 300);
-    localStorage.setItem(DBKEY+'_last_backup', new Date().toISOString());
-    updateBackupInfo();
-  }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
-}
-function restoreDataFromFile(ev){
-  const file = ev.target.files && ev.target.files[0];
-  if(!file) return;
-  const fr = new FileReader();
-  fr.onload = ()=>{
-    try{
-      const parsed = JSON.parse(fr.result);
-      const normalized = normalizeState(parsed||{});
-      Object.keys(state).forEach(k=>delete state[k]);
-      Object.assign(state, normalized);
-      save();
-      renderAll();
-      updateBackupInfo();
-      alert('Backup erfolgreich wiederhergestellt.');
-    }catch(e){
-      alert('Backup-Datei konnte nicht gelesen werden.');
-    }finally{
-      ev.target.value='';
-    }
-  };
-  fr.readAsText(file);
-}
-function updateBackupInfo(){
-  const el = document.getElementById('backupInfo');
-  if(!el) return;
-  const iso = localStorage.getItem(DBKEY+'_last_backup');
-  if(!iso){ el.textContent = 'Kein Backup erstellt'; return; }
-  try{
-    const d = new Date(iso);
-    el.textContent = 'Letztes Backup: ' + d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-  }catch(e){ el.textContent = 'Backup vorhanden'; }
-}
-
-</script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
 <style>
 :root{
   --bg:#07111d; --panel:#0d1828; --panel2:#122238; --line:#1f3654; --text:#eef5ff; --muted:#9bb0ce;
@@ -146,10 +96,12 @@ hr.soft{border:0;border-top:1px solid var(--line);margin:14px 0}
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button class="btn-ghost" type="button" onclick="backupData()">Backup erstellen</button>
-      <button class="btn-ghost" type="button" onclick="document.getElementById('restoreFile').click()">Wiederherstellen</button>
+      <button class="btn-ghost" type="button" onclick="pickRestoreFile()">Backup-Datei wählen</button>
+      <button class="btn-ghost" type="button" id="restoreConfirmBtn" onclick="confirmRestoreFromSelected()" disabled>Jetzt wiederherstellen</button>
       <div class="small" id="backupInfo">Kein Backup erstellt</div>
+      <div class="small" id="restoreFileName">Keine Backup-Datei gewählt</div>
     </div>
-    <input id="restoreFile" type="file" accept="application/json" style="display:none" />
+    <input id="restoreFile" type="file" accept=".json,application/json" style="display:none" />
   </header>
   <div class="layout">
     <aside>
@@ -193,7 +145,7 @@ function normalizeState(s){
     wochenberichte:Array.isArray(s.wochenberichte)?s.wochenberichte:[],
     termine:Array.isArray(s.termine)?s.termine:[],
     kalenderFocus:s.kalenderFocus||null,
-    kalenderMonth:s.kalenderMonth || new Date().toISOString().slice(0,7),
+    kalenderMonth:s.kalenderMonth || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`,
     kalenderEditId:s.kalenderEditId||null,
     videoEditId:s.videoEditId||null,
     leadEditId:s.leadEditId||null,
@@ -248,7 +200,7 @@ function showScreen(id){
   document.querySelectorAll('[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));
 }
 function renderAll(){renderDashboard();renderCRM('leads','Leads',state.leads);renderCRM('anfragen','Anfragen',state.anfragen);renderMaschinen();renderVideos();renderSpesen();renderKalender();renderWochenbericht();}
-document.getElementById('restoreFile').addEventListener('change', restoreDataFromFile);
+document.getElementById('restoreFile').addEventListener('change', handleRestoreFilePicked);
 
 function badge(text,type='blue'){return `<span class="badge b-${type}">${esc(text)}</span>`}
 
@@ -460,20 +412,23 @@ function renderCRMList(prefix,list){
     const wa = whatsappHref(x.tel);
     if(prefix==='lead') return `
       <div class="item">
-        <div class="section-head" style="margin-bottom:10px"><div><h4>${esc(x.firma||'-')}</h4><div class="meta"><span>${esc(x.kontakt||'')}</span></div></div><div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div></div>
+        <div class="section-head" style="margin-bottom:10px"><div><h4>${esc(x.firma||'-')}</h4><div class="meta"><span>${esc(x.kontakt||'')}</span><span>${esc(x.status||'Neu')}</span></div></div><div>${badge(x.status||'Neu', x.status==='Angebot'?'green':x.status==='Nachfassen'?'orange':'blue')}</div></div>
         ${x.kontakt?`<div class="small"><strong>Ansprechpartner:</strong> ${esc(x.kontakt)}</div>`:''}
         ${x.tel?`<div class="small" style="margin-top:4px"><strong>Telefon:</strong> ${esc(x.tel)}</div>`:''}
         ${address?`<div class="small" style="margin-top:4px"><strong>Anschrift:</strong> ${esc(address)}</div>`:''}
         ${x.mail?`<div class="small" style="margin-top:4px"><strong>E-Mail:</strong> ${esc(x.mail)}</div>`:''}
+        ${(x.datum||x.uhrzeit||x.reminderDate||x.reminderTime)?`<div class="small" style="margin-top:4px"><strong>Termin:</strong> ${esc(x.datum||x.reminderDate||'')}${(x.uhrzeit||x.reminderTime)?` · ${esc(x.uhrzeit||x.reminderTime)}`:''}</div>`:''}
         ${x.produkt||x.interesse?`<div class="small" style="margin-top:4px"><strong>Maschine:</strong> ${esc([x.interesse,x.produkt].filter(Boolean).join(' · '))}</div>`:''}
         ${x.nextStep?`<div class="small" style="margin-top:4px"><strong>Nächster Schritt:</strong> ${esc(x.nextStep)}</div>`:''}
         ${x.angebotNr?`<div class="small" style="margin-top:4px"><strong>Angebotsnummer:</strong> ${esc(x.angebotNr)}</div>`:''}
         <div class="row auto" style="margin-top:10px">
           ${x.tel?`<button class="btn-success" onclick="window.open('${wa}','_blank')">WhatsApp</button>`:''}
           ${(x.reminderDate || x.datum) ? `<button class="btn-success" onclick="openCalendarForRecordById('${prefix}','${x.id}')">Im Kalender</button>`:''}
+          ${(x.bericht || x.notiz || (x.pdfs&&x.pdfs.length)) ? `<button class="btn-ghost" onclick="toggleLeadExtras(this)">Mehr</button>` : ``}
           <button class="btn-secondary" onclick="editCRM('${prefix}','${x.id}')">Bearbeiten</button>
           <button class="btn-danger" onclick="deleteCRM('${prefix}','${x.id}')">Löschen</button>
         </div>
+        ${(x.bericht || x.notiz || (x.pdfs&&x.pdfs.length)) ? `<div class="lead-extra" style="display:none;margin-top:10px">${x.bericht?`<div class="small"><strong>Bericht:</strong> ${esc(x.bericht)}</div>`:''}${x.notiz?`<div class="small" style="margin-top:6px"><strong>Notiz:</strong> ${esc(x.notiz)}</div>`:''}${(x.pdfs&&x.pdfs.length)?`<div style="margin-top:8px">${renderPdfList(x.pdfs||[])}</div>`:''}</div>` : ``}
       </div>`;
     return `
       <div class="item">
@@ -769,22 +724,25 @@ function openCalendarForRecordById(prefix,id){
     notiz: rec.notiz || ''
   });
 }
+function formatMonthKey(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
 function prevKalenderMonth(){
   const d = getKalenderMonthDate();
   d.setMonth(d.getMonth()-1);
-  state.kalenderMonth = d.toISOString().slice(0,7);
+  state.kalenderMonth = formatMonthKey(d);
   save();
   renderKalender();
 }
 function nextKalenderMonth(){
   const d = getKalenderMonthDate();
   d.setMonth(d.getMonth()+1);
-  state.kalenderMonth = d.toISOString().slice(0,7);
+  state.kalenderMonth = formatMonthKey(d);
   save();
   renderKalender();
 }
 function getKalenderMonthDate(){
-  const base = state.kalenderMonth || new Date().toISOString().slice(0,7);
+  const base = state.kalenderMonth || formatMonthKey(new Date());
   const [y,m] = base.split('-').map(Number);
   return new Date(y, (m||1)-1, 1);
 }
@@ -984,7 +942,7 @@ function collectCalendarItems(){
 function renderKalender(){
   const el=document.getElementById('kalender');
   const allItems = collectCalendarItems();
-  const monthKeyView = state.kalenderMonth || new Date().toISOString().slice(0,7);
+  const monthKeyView = state.kalenderMonth || formatMonthKey(new Date());
   const monthItems = allItems.filter(x=>String(x.datum||'').startsWith(monthKeyView));
   const focus = state.kalenderFocus;
   const grouped = {};
@@ -1545,6 +1503,12 @@ function renderPdfList(pdfs){
   if(!pdfs.length) return '<div class="small">Keine PDFs hinterlegt.</div>';
   return `<div class="filelist">${pdfs.map((p,i)=>`<div class="filepill"><div><strong>${esc(p.name)}</strong>${p.text?`<div class="small">Text erkannt · ${Math.min((p.text||'').length,5000)} Zeichen</div>`:'<div class="small">Kein lesbarer Text gefunden</div>'}</div><div class="row auto"><button class="btn-ghost" onclick="openDataUrl('${jsQuote(p.data)}')">Öffnen</button><button class="btn-ghost" onclick="togglePdfText(this)">Text</button></div></div><div class="pdftext" style="display:none">${esc(p.text||'Kein auslesbarer Text gefunden.')}</div>`).join('')}</div>`;
 }
+
+function toggleLeadExtras(btn){
+  const wrap = btn.closest('.item')?.querySelector('.lead-extra');
+  if(!wrap) return;
+  wrap.style.display = wrap.style.display==='none' ? 'block' : 'none';
+}
 function togglePdfText(btn){const next=btn.parentElement.parentElement.nextElementSibling; if(next) next.style.display=next.style.display==='none'?'block':'none';}
 function openDataUrl(url){window.open(url,'_blank');}
 function val(id){return document.getElementById(id)?.value||''}
@@ -1591,27 +1555,78 @@ function backupData(){
     updateBackupInfo();
   }catch(e){ alert('Backup konnte nicht erstellt werden.'); }
 }
-function restoreDataFromFile(ev){
+function pickRestoreFile(){
+  const input = document.getElementById('restoreFile');
+  if(!input) return;
+  input.removeAttribute('capture');
+  if (typeof input.showPicker === 'function') {
+    input.showPicker().catch(()=>input.click());
+  } else {
+    input.click();
+  }
+}
+function handleRestoreFilePicked(ev){
   const file = ev.target.files && ev.target.files[0];
-  if(!file) return;
+  const nameEl = document.getElementById('restoreFileName');
+  const btn = document.getElementById('restoreConfirmBtn');
+  window.__restoreCandidate = null;
+  if(!file){
+    if(nameEl) nameEl.textContent = 'Keine Backup-Datei gewählt';
+    if(btn) btn.disabled = true;
+    return;
+  }
+  if(!/\.json$/i.test(file.name) && file.type && file.type !== 'application/json'){
+    if(nameEl) nameEl.textContent = 'Bitte eine Backup-JSON auswählen';
+    if(btn) btn.disabled = true;
+    ev.target.value='';
+    return;
+  }
   const fr = new FileReader();
   fr.onload = ()=>{
     try{
       const parsed = JSON.parse(fr.result);
       const normalized = normalizeState(parsed||{});
-      Object.keys(state).forEach(k=>delete state[k]);
-      Object.assign(state, normalized);
-      save();
-      renderAll();
-      updateBackupInfo();
-      alert('Backup erfolgreich wiederhergestellt.');
+      window.__restoreCandidate = normalized;
+      const counts = `Leads ${normalized.leads.length} · Anfragen ${normalized.anfragen.length} · Spesen ${normalized.spesen.length} · Kalender ${normalized.termine.length}`;
+      if(nameEl) nameEl.textContent = `${file.name} · ${counts}`;
+      if(btn) btn.disabled = false;
     }catch(e){
-      alert('Backup-Datei konnte nicht gelesen werden.');
-    }finally{
+      window.__restoreCandidate = null;
+      if(nameEl) nameEl.textContent = 'Backup-Datei ist ungültig';
+      if(btn) btn.disabled = true;
       ev.target.value='';
     }
   };
+  fr.onerror = ()=>{
+    if(nameEl) nameEl.textContent = 'Backup-Datei konnte nicht gelesen werden';
+    if(btn) btn.disabled = true;
+    ev.target.value='';
+  };
   fr.readAsText(file);
+}
+function confirmRestoreFromSelected(){
+  const candidate = window.__restoreCandidate;
+  const input = document.getElementById('restoreFile');
+  const nameEl = document.getElementById('restoreFileName');
+  const btn = document.getElementById('restoreConfirmBtn');
+  if(!candidate) return alert('Bitte zuerst eine Backup-Datei wählen.');
+  try{
+    localStorage.setItem(DBKEY+'_emergency_backup', JSON.stringify(state));
+  }catch(e){}
+  try{
+    Object.keys(state).forEach(k=>delete state[k]);
+    Object.assign(state, candidate);
+    save();
+    renderAll();
+    updateBackupInfo();
+    if(nameEl) nameEl.textContent = 'Backup erfolgreich wiederhergestellt';
+    if(btn) btn.disabled = true;
+    if(input) input.value='';
+    window.__restoreCandidate = null;
+    alert('Backup erfolgreich wiederhergestellt.');
+  }catch(e){
+    alert('Wiederherstellung fehlgeschlagen.');
+  }
 }
 function updateBackupInfo(){
   const el = document.getElementById('backupInfo');
@@ -1623,7 +1638,6 @@ function updateBackupInfo(){
     el.textContent = 'Letztes Backup: ' + d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
   }catch(e){ el.textContent = 'Backup vorhanden'; }
 }
-
 </script>
 </body>
 </html>
